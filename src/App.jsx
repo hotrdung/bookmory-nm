@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Book, Camera, CheckCircle, Edit3, Sparkles, LogOut, Plus, Trash2, ChevronLeft, BookOpen, Users, Shield } from 'lucide-react';
+import { Book, Camera, Check, CheckCircle, Edit3, Sparkles, LogOut, Plus, Trash2, ChevronLeft, BookOpen, Users, Shield, Download, Upload, Settings } from 'lucide-react';
 import { initializeApp } from "firebase/app";
 import {
   getAuth,
@@ -13,8 +13,12 @@ import {
   collection,
   doc,
   setDoc,
+  getDocs,
+  deleteDoc,
   onSnapshot,
   updateDoc,
+  query,
+  where,
 } from "firebase/firestore";
 
 // --- CONFIGURATION ---
@@ -33,7 +37,7 @@ const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-const GEMINI_MODEL = import.meta.env.VITE_GEMINI_MODEL || "gemini-2.0-flash";
+const GEMINI_MODELS = (import.meta.env.VITE_GEMINI_MODELS || "gemini-2.5-flash,gemini-3-flash-preview,gemini-3.1-flash-lite-preview,gemma-4-31b").split(",");
 
 const APP_CONFIG = {
   allowedUsers: JSON.parse(import.meta.env.VITE_ALLOWED_USERS || "{}"),
@@ -50,9 +54,7 @@ const THEMES = {
 
 // --- GEMINI API HELPER ---
 const callGemini = async (prompt, images = [], isJson = false) => {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
   const parts = [{ text: prompt }];
-  
   const imageList = Array.isArray(images) ? images : (images ? [images] : []);
   
   imageList.forEach(base64Image => {
@@ -65,42 +67,56 @@ const callGemini = async (prompt, images = [], isJson = false) => {
   
   const payload = { contents: [{ parts }], generationConfig: isJson ? { responseMimeType: "application/json" } : {} };
 
-  // Exponential backoff retry strategy for 429 and 5xx errors
-  let delay = 2000;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      if (imageList.length > 0) {
-        const totalSize = imageList.reduce((acc, img) => acc + (img?.length || 0), 0);
-        console.log(`Sending ${imageList.length} image(s) to Gemini (Total size: ${Math.round(totalSize / 1024)}KB)`);
-      }
-      
-      const response = await fetch(url, { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify(payload) 
-      });
-      
-      if (!response.ok) {
-        const errorBody = await response.json().catch(() => ({}));
-        console.error(`Gemini API Error (${response.status}):`, errorBody);
+  // Try each model in sequence as a fallback
+  for (let i = 0; i < GEMINI_MODELS.length; i++) {
+    const model = GEMINI_MODELS[i];
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+    
+    // Exponential backoff retry strategy per model
+    let delay = 1500;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        if (imageList.length > 0 && attempt === 0 && i === 0) {
+          const totalSize = imageList.reduce((acc, img) => acc + (img?.length || 0), 0);
+          console.log(`Sending ${imageList.length} image(s) to Gemini (${model}) (Total size: ${Math.round(totalSize / 1024)}KB)`);
+        }
         
-        if (response.status === 429) throw new Error("RATE_LIMIT");
-        if (response.status >= 500) throw new Error(`SERVER_ERROR_${response.status}`);
-        throw new Error(`HTTP_${response.status}`);
+        const response = await fetch(url, { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify(payload) 
+        });
+        
+        if (!response.ok) {
+          const errorBody = await response.json().catch(() => ({}));
+          console.error(`Gemini API Error (${model}, ${response.status}):`, errorBody);
+          
+          if (response.status === 429) throw new Error("RATE_LIMIT");
+          if (response.status >= 500) throw new Error(`SERVER_ERROR_${response.status}`);
+          throw new Error(`HTTP_${response.status}`);
+        }
+        
+        const result = await response.json();
+        if (!result.candidates?.[0]?.content?.parts?.[0]?.text) {
+          throw new Error("INVALID_RESPONSE");
+        }
+        return result.candidates[0].content.parts[0].text;
+      } catch (e) {
+        const isRetryable = e.message === "RATE_LIMIT" || e.message.startsWith("SERVER_ERROR");
+        
+        // If it's the last attempt for this model, either fail to next model or throw if last model
+        if (attempt === 2 || !isRetryable) {
+          if (i < GEMINI_MODELS.length - 1 && isRetryable) {
+            console.warn(`Model ${model} failed after retries. Trying next model: ${GEMINI_MODELS[i+1]}`);
+            break; // Break the attempt loop, continue the model loop
+          }
+          throw e; // Final failure
+        }
+        
+        console.warn(`Attempt ${attempt + 1} for ${model} failed: ${e.message}. Retrying in ${delay}ms...`);
+        await new Promise(r => setTimeout(r, delay));
+        delay *= 2; 
       }
-      
-      const result = await response.json();
-      if (!result.candidates?.[0]?.content?.parts?.[0]?.text) {
-        throw new Error("INVALID_RESPONSE");
-      }
-      return result.candidates[0].content.parts[0].text;
-    } catch (e) {
-      const isRetryable = e.message === "RATE_LIMIT" || e.message.startsWith("SERVER_ERROR");
-      if (attempt === 2 || !isRetryable) throw e;
-      
-      console.warn(`Attempt ${attempt + 1} failed: ${e.message}. Retrying in ${delay}ms...`);
-      await new Promise(r => setTimeout(r, delay));
-      delay *= 2.5; // Exponential backoff
     }
   }
 };
@@ -238,6 +254,102 @@ export default function App() {
     setView("auth");
   };
 
+  const handleExportData = () => {
+    const data = {
+      family_books: allFamilyBooks,
+      reading_progress: userProgressList,
+      version: "1.0",
+      exportDate: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `bookmory_backup_${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+  };
+
+  const handleClearAllData = async () => {
+    if (!confirm("⚠️ DANGER: This will delete ALL books and progress for the entire family! Are you absolutely sure?")) return;
+    if (!confirm("FINAL WARNING: This cannot be undone. Delete everything?")) return;
+
+    try {
+      setLoading(true);
+      // Delete Books
+      const booksSnap = await getDocs(collection(db, "family_books"));
+      for (const d of booksSnap.docs) {
+        await deleteDoc(doc(db, "family_books", d.id));
+      }
+      // Delete Progress
+      const progressSnap = await getDocs(collection(db, "reading_progress"));
+      for (const d of progressSnap.docs) {
+        await deleteDoc(doc(db, "reading_progress", d.id));
+      }
+      alert("All data has been cleared.");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to clear data.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleImportData = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = JSON.parse(event.target.result);
+        if (!data.family_books || !data.reading_progress) throw new Error("Invalid backup file format.");
+
+        setLoading(true);
+        // Import Books
+        for (const book of data.family_books) {
+          await setDoc(doc(db, "family_books", book.id), book);
+        }
+        // Import Progress
+        for (const prog of data.reading_progress) {
+          await setDoc(doc(db, "reading_progress", prog.id || doc(collection(db, "reading_progress")).id), prog);
+        }
+        alert("Data imported successfully!");
+      } catch (err) {
+        console.error(err);
+        alert("Import failed: " + err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleDeleteBook = async (bookId) => {
+    if (!confirm("Are you sure you want to delete this book? This will also delete everyone's reading progress for it!")) return;
+    
+    try {
+      setLoading(true);
+      // 1. Delete Book
+      await deleteDoc(doc(db, "family_books", bookId));
+      
+      // 2. Delete all related progress
+      const progressSnap = await getDocs(
+        query(collection(db, "reading_progress"), where("bookId", "==", bookId))
+      );
+      for (const d of progressSnap.docs) {
+        await deleteDoc(doc(db, "reading_progress", d.id));
+      }
+      
+      setView("dashboard");
+      alert("Book deleted.");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete book.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Auth Setup
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -323,14 +435,17 @@ export default function App() {
 
           <main className="flex-1 p-4 overflow-y-auto">
             {view === "dashboard" && (
-              <ParentDashboard
-                config={APP_CONFIG}
-                themes={THEMES}
+              <ParentDashboard 
+                config={APP_CONFIG} 
+                themes={THEMES} 
                 onSelectKid={(email) => {
                   setActiveKidEmail(email);
                   setListTab("my");
                   setView("list");
                 }}
+                onExport={handleExportData}
+                onImport={handleImportData}
+                onClear={handleClearAllData}
               />
             )}
             {view === "list" && (
@@ -347,18 +462,29 @@ export default function App() {
               />
             )}
             {view === "add" && (
-              <AddBook
-                theme={currentTheme}
-                ownerEmail={activeKidEmail}
-                onBack={() => setView("list")}
+              <AddBook 
+                theme={currentTheme} 
+                ownerEmail={firebaseUser.email} 
+                onBack={() => setView("list")} 
+              />
+            )}
+            {view === "edit" && (
+              <AddBook 
+                theme={currentTheme} 
+                ownerEmail={firebaseUser.email} 
+                bookToEdit={selectedBook}
+                onBack={() => setView("detail")} 
               />
             )}
             {view === "detail" && (
-              <BookDetail
-                book={selectedBook}
-                userEmail={activeKidEmail}
-                theme={currentTheme}
+              <BookDetail 
+                book={selectedBook} 
+                userEmail={activeKidEmail || firebaseUser.email} 
+                isParent={appUser?.role === 'parent'}
+                theme={currentTheme} 
                 onBack={() => setView("list")}
+                onEdit={() => setView("edit")}
+                onDelete={() => handleDeleteBook(selectedBook.id)}
               />
             )}
           </main>
@@ -406,15 +532,16 @@ function Header({ theme, title, onLogout, showBack, onBack }) {
   );
 }
 
-function ParentDashboard({ config, themes, onSelectKid }) {
+function ParentDashboard({ config, themes, onSelectKid, onExport, onImport, onClear }) {
   const kids = Object.values(config.allowedUsers).filter(u => u.role === 'kid');
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20">
       <div className="bg-emerald-100 p-6 rounded-3xl text-emerald-800 text-center">
         <Shield size={32} className="mx-auto mb-2 opacity-50" />
         <h2 className="font-bold text-xl mb-1">Parent Dashboard</h2>
         <p className="text-sm opacity-80">Select a profile to view progress or add books.</p>
       </div>
+
       <div className="grid grid-cols-2 gap-4">
         {kids.map(kid => {
           const t = themes[kid.themeId];
@@ -425,6 +552,32 @@ function ParentDashboard({ config, themes, onSelectKid }) {
             </button>
           )
         })}
+      </div>
+
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
+        <h3 className="font-bold text-gray-800 flex items-center">
+          <Settings size={18} className="mr-2 text-gray-400" />
+          Data Management
+        </h3>
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Backup & Restore</p>
+        
+        <div className="grid grid-cols-2 gap-3">
+          <button onClick={onExport} className="flex items-center justify-center space-x-2 p-3 bg-gray-50 rounded-2xl font-bold text-xs text-gray-600 hover:bg-gray-100 transition">
+            <Download size={14} />
+            <span>Export JSON</span>
+          </button>
+          
+          <label className="flex items-center justify-center space-x-2 p-3 bg-gray-50 rounded-2xl font-bold text-xs text-gray-600 hover:bg-gray-100 transition cursor-pointer">
+            <Upload size={14} />
+            <span>Import JSON</span>
+            <input type="file" accept=".json" className="hidden" onChange={onImport} />
+          </label>
+        </div>
+
+        <button onClick={onClear} className="w-full flex items-center justify-center space-x-2 p-3 bg-red-50 rounded-2xl font-bold text-xs text-red-500 hover:bg-red-100 transition mt-2">
+          <Trash2 size={14} />
+          <span>Clear All Data</span>
+        </button>
       </div>
     </div>
   );
@@ -492,20 +645,20 @@ function BookList({ books, tab, setTab, theme, onAdd, onSelect }) {
   );
 }
 
-function AddBook({ theme, ownerEmail, onBack }) {
-  const [title, setTitle] = useState('');
-  const [author, setAuthor] = useState("");
-  const [bookImages, setBookImages] = useState([]); // 1st is cover
+function AddBook({ theme, ownerEmail, onBack, bookToEdit = null }) {
+  const [title, setTitle] = useState(bookToEdit?.title || '');
+  const [author, setAuthor] = useState(bookToEdit?.author || "");
+  const [bookImages, setBookImages] = useState(bookToEdit?.coverUrl ? [bookToEdit.coverUrl] : []); 
   const [tocImages, setTocImages] = useState([]);
-  const [toc, setToc] = useState([]);
+  const [toc, setToc] = useState(bookToEdit?.toc || []);
   
-  const [tags, setTags] = useState([]);
-  const [summary, setSummary] = useState("");
+  const [tags, setTags] = useState(bookToEdit?.tags || []);
+  const [summary, setSummary] = useState(bookToEdit?.summary || "");
 
   // Progress tracking fields
-  const [totalPages, setTotalPages] = useState('');
-  const [readingGoal, setReadingGoal] = useState('');
-  const [dueDate, setDueDate] = useState('');
+  const [totalPages, setTotalPages] = useState(bookToEdit?.totalPages?.toString() || '');
+  const [readingGoal, setReadingGoal] = useState(bookToEdit?.readingGoal?.toString() || '');
+  const [dueDate, setDueDate] = useState(bookToEdit?.dueDate || '');
 
   const [isProcessingAI, setIsProcessingAI] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -597,9 +750,10 @@ function AddBook({ theme, ownerEmail, onBack }) {
     
     setSaving(true);
     try {
-      // 1. Save Master Book
-      const bookDocRef = doc(collection(db, 'family_books'));
-      const newBook = {
+      // 1. Save/Update Master Book
+      const bookDocRef = bookToEdit ? doc(db, 'family_books', bookToEdit.id) : doc(collection(db, 'family_books'));
+      const now = Date.now();
+      const bookData = {
         id: bookDocRef.id,
         title,
         author,
@@ -607,24 +761,32 @@ function AddBook({ theme, ownerEmail, onBack }) {
         toc,
         tags,
         summary,
-        ownerEmail,
-        createdAt: Date.now(),
-      };
-      await setDoc(bookDocRef, newBook);
-
-      // 2. Start Progress for this user
-      const progressDocRef = doc(collection(db, 'reading_progress'));
-      const newProgress = {
-        bookId: bookDocRef.id,
-        userEmail: ownerEmail,
         totalPages: parseInt(totalPages),
-        readingGoal: parseInt(readingGoal || 10),
-        dueDate: dueDate,
-        startDate: Date.now(),
-        lastPageRead: 0,
-        logs: {}
+        ownerEmail: bookToEdit?.ownerEmail || ownerEmail,
+        updatedAt: now,
       };
-      await setDoc(progressDocRef, newProgress);
+      if (!bookToEdit) bookData.createdAt = now;
+      
+      await setDoc(bookDocRef, bookData, { merge: true });
+
+      // 2. Start/Update Progress for this user (if not just editing)
+      if (!bookToEdit) {
+        const progressDocRef = doc(collection(db, 'reading_progress'));
+        const newProgress = {
+          bookId: bookDocRef.id,
+          userEmail: ownerEmail,
+          totalPages: parseInt(totalPages),
+          readingGoal: parseInt(readingGoal || 10),
+          dueDate: dueDate,
+          startDate: now,
+          lastPageRead: 0,
+          logs: {},
+          toc: toc, 
+          createdAt: now,
+          updatedAt: now,
+        };
+        await setDoc(progressDocRef, newProgress);
+      }
 
       onBack();
     } catch (err) {
@@ -637,7 +799,7 @@ function AddBook({ theme, ownerEmail, onBack }) {
     <div className="space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-4">
       <div className="flex items-center mb-6">
         <button onClick={onBack} className="p-2 bg-white rounded-full shadow-sm mr-4 text-gray-500"><ChevronLeft size={24} /></button>
-        <h2 className="text-2xl font-bold">Add New Book</h2>
+        <h2 className="text-2xl font-bold">{bookToEdit ? "Edit Book" : "Add New Book"}</h2>
       </div>
 
       {aiError && <div className="p-3 bg-blue-100 text-blue-700 rounded-xl text-xs font-medium animate-pulse">{aiError}</div>}
@@ -661,7 +823,6 @@ function AddBook({ theme, ownerEmail, onBack }) {
           </label>
           <p className="text-[10px] text-gray-400 mt-2 font-bold uppercase tracking-widest">Select multiple: Cover + Back + Info</p>
         </div>
-
         <div className={`${theme.card} p-6 rounded-3xl shadow-sm border ${theme.border} text-center`}>
           <div className="flex flex-wrap gap-2 mb-4 justify-center">
             {tocImages.map((img, i) => (
@@ -722,18 +883,18 @@ function AddBook({ theme, ownerEmail, onBack }) {
           <label className={`block text-[10px] font-bold mb-1 ml-2 uppercase ${theme.textMuted}`}>Goal (Pages/Day)</label>
           <input type="number" value={readingGoal} onChange={e => setReadingGoal(e.target.value)} className={`w-full p-3 rounded-xl border-none ${theme.bg} ${theme.text} font-bold`} placeholder="10" />
         </div>
-        <div className="col-span-2">
-          <label className={`block text-[10px] font-bold mb-1 ml-2 uppercase ${theme.textMuted}`}>Target Finish Date</label>
-          <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className={`w-full p-3 rounded-xl border-none ${theme.bg} ${theme.text}`} />
-        </div>
+        {!bookToEdit && (
+          <div className="col-span-2">
+            <label className={`block text-[10px] font-bold mb-1 ml-2 uppercase ${theme.textMuted}`}>Target Finish Date</label>
+            <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className={`w-full p-3 rounded-xl border-none ${theme.bg} ${theme.text}`} />
+          </div>
+        )}
       </div>
 
       <div className={`${theme.card} p-6 rounded-3xl shadow-sm border ${theme.border}`}>
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-bold text-gray-800">Chapters Checklist</h3>
         </div>
-
-
 
         {toc.length > 0 ? (
           <div className="space-y-2 mb-4 max-h-48 overflow-y-auto pr-2">
@@ -759,7 +920,7 @@ function AddBook({ theme, ownerEmail, onBack }) {
   );
 }
 
-function BookDetail({ book, userEmail, theme, onBack }) {
+function BookDetail({ book, userEmail, isParent, theme, onBack, onEdit, onDelete }) {
   const [localBook, setLocalBook] = useState(book);
   const [activeTab, setActiveTab] = useState('progress');
   const [showNoteModal, setShowNoteModal] = useState(false);
@@ -769,18 +930,14 @@ function BookDetail({ book, userEmail, theme, onBack }) {
   const saveUpdates = async (updatedBook) => {
     setLocalBook(updatedBook);
     const bookRef = doc(db, 'family_books', updatedBook.id);
-    await updateDoc(bookRef, updatedBook);
+    await updateDoc(bookRef, { ...updatedBook, updatedAt: Date.now() });
   };
 
-  const saveProgress = async (updatedProgress) => {
-    setLocalBook({ ...localBook, progress: updatedProgress });
-    const progressRef = doc(db, 'reading_progress', updatedProgress.id);
-    await updateDoc(progressRef, updatedProgress);
-  };
-
-  const toggleChapter = (chapterId) => {
-    const updatedToc = localBook.toc.map(ch => ch.id === chapterId ? { ...ch, completed: !ch.completed } : ch);
-    saveUpdates({ ...localBook, toc: updatedToc });
+  const saveProgress = async (updated) => {
+    const progressDocRef = doc(db, 'reading_progress', updated.id || localBook.progress.id);
+    const dataToSave = { ...updated, updatedAt: Date.now() };
+    await setDoc(progressDocRef, dataToSave, { merge: true });
+    setLocalBook({ ...localBook, progress: dataToSave });
   };
 
   const handleStartReading = async () => {
@@ -789,17 +946,28 @@ function BookDetail({ book, userEmail, theme, onBack }) {
     if (!totalPages || !goal) return;
 
     const progressDocRef = doc(collection(db, 'reading_progress'));
+    const now = Date.now();
     const newProgress = {
       id: progressDocRef.id,
       bookId: localBook.id,
       userEmail: userEmail,
       totalPages: parseInt(totalPages),
       readingGoal: parseInt(goal),
-      startDate: Date.now(),
-      logs: {}
+      startDate: now,
+      lastPageRead: 0,
+      logs: {},
+      toc: localBook.toc || [], // Personal copy
+      createdAt: now,
+      updatedAt: now,
     };
     await setDoc(progressDocRef, newProgress);
     setLocalBook({ ...localBook, progress: newProgress });
+  };
+
+  const toggleChapter = async (chapterIdx) => {
+    const newToc = [...(localBook.progress.toc || [])];
+    newToc[chapterIdx].completed = !newToc[chapterIdx].completed;
+    await saveProgress({ ...localBook.progress, toc: newToc });
   };
 
   const progress = localBook.progress;
@@ -831,14 +999,23 @@ function BookDetail({ book, userEmail, theme, onBack }) {
 
   return (
     <div className="space-y-6 pb-24 animate-in fade-in slide-in-from-right-4">
-      <div className="flex items-start space-x-4">
+      <div className="flex items-center justify-between">
         <button onClick={onBack} className="p-2 bg-white rounded-full shadow-sm text-gray-500 shrink-0"><ChevronLeft size={24} /></button>
-        <div className="flex-1 flex items-start space-x-4">
-           {localBook.coverUrl && <img src={localBook.coverUrl} alt="cover" className="w-20 rounded-lg shadow-md object-cover aspect-[3/4]" />}
-           <div>
-             <h2 className={`text-2xl font-black leading-tight ${theme.text}`}>{localBook.title}</h2>
-             <p className={`font-medium ${theme.textMuted}`}>{localBook.author}</p>
-           </div>
+        {isParent && (
+          <div className="flex space-x-2">
+            <button onClick={onEdit} className="p-2 bg-white rounded-full shadow-sm text-gray-400 hover:text-blue-500 transition"><Edit3 size={20} /></button>
+            <button onClick={onDelete} className="p-2 bg-white rounded-full shadow-sm text-gray-400 hover:text-red-500 transition"><Trash2 size={20} /></button>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-start space-x-4">
+        <div className="w-24 shrink-0">
+          <img src={localBook.coverUrl || "https://placehold.co/150x220?text=No+Cover"} alt={localBook.title} className="w-full rounded-xl shadow-lg border-2 border-white" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h2 className={`text-2xl font-black leading-tight mb-1 ${theme.text}`}>{localBook.title}</h2>
+          <p className={`font-bold ${theme.primaryText}`}>{localBook.author || 'Unknown Author'}</p>
         </div>
       </div>
 
@@ -877,6 +1054,35 @@ function BookDetail({ book, userEmail, theme, onBack }) {
             </div>
           </div>
 
+          {/* Personal Checklist (only if reading) */}
+          {progress && (progress.toc || []).length > 0 && (
+            <div className={`${theme.card} p-6 rounded-[2rem] shadow-sm border ${theme.border}`}>
+              <div className="flex justify-between items-center mb-4">
+                 <h3 className="font-bold text-gray-800">My Checklist</h3>
+                 <span className="text-[10px] font-bold text-pink-500 bg-pink-50 px-2 py-1 rounded-lg">
+                   {progress.toc.filter(c => c.completed).length} / {progress.toc.length}
+                 </span>
+              </div>
+              <div className="space-y-3">
+                {progress.toc.map((item, idx) => (
+                  <div 
+                    key={idx} 
+                    onClick={() => toggleChapter(idx)}
+                    className={`flex items-center space-x-3 p-3 rounded-2xl cursor-pointer transition ${item.completed ? 'bg-green-50 opacity-60' : theme.bg}`}
+                  >
+                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center ${item.completed ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300'}`}>
+                       {item.completed && <Check size={14} strokeWidth={4} />}
+                    </div>
+                    <div className="flex-1">
+                      <p className={`text-sm font-bold ${item.completed ? 'text-green-700 line-through' : theme.text}`}>{item.title}</p>
+                      {item.page && <p className="text-[10px] text-gray-400">Starts at page {item.page}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className={`flex p-1 rounded-full w-max mx-auto mb-6 ${theme.secondary}`}>
             <button onClick={() => setActiveTab('progress')} className={`px-6 py-2 rounded-full font-bold text-sm transition ${activeTab === 'progress' ? `${theme.card} shadow-sm ${theme.text}` : theme.textMuted}`}>Chapters</button>
             <button onClick={() => setActiveTab('notes')} className={`px-6 py-2 rounded-full font-bold text-sm transition ${activeTab === 'notes' ? `${theme.card} shadow-sm ${theme.text}` : theme.textMuted}`}>All Notes</button>
@@ -886,7 +1092,7 @@ function BookDetail({ book, userEmail, theme, onBack }) {
             <div className="space-y-3">
               {localBook.toc?.map((chapter) => (
                 <div key={chapter.id} className={`${theme.card} p-4 rounded-2xl shadow-sm border ${theme.border} flex items-center space-x-4 transition ${chapter.completed ? 'opacity-70' : ''}`}>
-                  <button onClick={() => toggleChapter(chapter.id)} className={`w-8 h-8 rounded-full flex items-center justify-center border-2 shrink-0 transition ${chapter.completed ? `${theme.primary} border-transparent text-white` : `border-gray-300 text-transparent hover:border-gray-400`}`}>
+                  <button onClick={() => toggleChapter(localBook.toc.indexOf(chapter))} className={`w-8 h-8 rounded-full flex items-center justify-center border-2 shrink-0 transition ${chapter.completed ? `${theme.primary} border-transparent text-white` : `border-gray-300 text-transparent hover:border-gray-400`}`}>
                     <CheckCircle size={20} className={chapter.completed ? 'block' : 'hidden'} />
                   </button>
                   <div className="flex-1 min-w-0">
@@ -939,7 +1145,22 @@ function BookDetail({ book, userEmail, theme, onBack }) {
           onSave={async (pagesRead, currentPage) => {
             const today = new Date().toISOString().split('T')[0];
             const updatedLogs = { ...progress.logs, [today]: { pagesRead, currentPage, date: Date.now() } };
-            await saveProgress({ ...progress, logs: updatedLogs, lastPageRead: currentPage });
+            
+            // Auto-complete ToC items based on page number
+            const updatedToc = (progress.toc || []).map(item => {
+              const itemPage = parseInt(item.page);
+              if (!isNaN(itemPage) && itemPage > 0 && itemPage <= currentPage) {
+                return { ...item, completed: true };
+              }
+              return item;
+            });
+
+            await saveProgress({ 
+              ...progress, 
+              logs: updatedLogs, 
+              toc: updatedToc,
+              lastPageRead: currentPage 
+            });
             setShowCheckIn(false);
           }}
         />
@@ -951,7 +1172,7 @@ function BookDetail({ book, userEmail, theme, onBack }) {
 function CheckInModal({ progress, theme, onClose, onSave }) {
   const [pagesRead, setPagesRead] = useState('');
   const [currentPage, setCurrentPage] = useState(progress.lastPageRead?.toString() || '');
-  const [mode, setMode] = useState('count'); // count or page
+  const [mode, setMode] = useState('page'); // Default to page
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 
   return (
