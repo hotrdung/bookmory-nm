@@ -49,15 +49,19 @@ const THEMES = {
 };
 
 // --- GEMINI API HELPER ---
-const callGemini = async (prompt, base64Image = null, isJson = false) => {
+const callGemini = async (prompt, images = [], isJson = false) => {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
   const parts = [{ text: prompt }];
   
-  if (base64Image) {
-    const mimeType = base64Image.match(/data:(.*?);base64/)[1];
-    const data = base64Image.split(',')[1];
-    parts.push({ inlineData: { mimeType, data } });
-  }
+  const imageList = Array.isArray(images) ? images : (images ? [images] : []);
+  
+  imageList.forEach(base64Image => {
+    if (base64Image) {
+      const mimeType = base64Image.match(/data:(.*?);base64/)[1];
+      const data = base64Image.split(',')[1];
+      parts.push({ inlineData: { mimeType, data } });
+    }
+  });
   
   const payload = { contents: [{ parts }], generationConfig: isJson ? { responseMimeType: "application/json" } : {} };
 
@@ -65,8 +69,9 @@ const callGemini = async (prompt, base64Image = null, isJson = false) => {
   let delay = 2000;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      if (base64Image) {
-        console.log(`Sending image to Gemini (size: ${Math.round(base64Image.length / 1024)}KB)`);
+      if (imageList.length > 0) {
+        const totalSize = imageList.reduce((acc, img) => acc + (img?.length || 0), 0);
+        console.log(`Sending ${imageList.length} image(s) to Gemini (Total size: ${Math.round(totalSize / 1024)}KB)`);
       }
       
       const response = await fetch(url, { 
@@ -191,6 +196,8 @@ export default function App() {
   const [activeKidEmail, setActiveKidEmail] = useState(null);
 
   const [allFamilyBooks, setAllFamilyBooks] = useState([]);
+  const [userProgressList, setUserProgressList] = useState([]);
+  const [listTab, setListTab] = useState("my"); // my, library
   const [view, setView] = useState("auth"); // auth, dashboard, list, add, detail
   const [selectedBook, setSelectedBook] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -245,27 +252,29 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Fetch Books
+  // Fetch Books (Library) and User Progress
   useEffect(() => {
     if (!firebaseUser || !appUser) return;
 
-    // Using a standard root collection for the real deployment
     const booksRef = collection(db, "family_books");
+    const progressRef = collection(db, "reading_progress");
 
-    const unsubscribe = onSnapshot(
-      booksRef,
-      (snapshot) => {
-        const data = [];
-        snapshot.forEach((doc) => data.push({ id: doc.id, ...doc.data() }));
-        data.sort((a, b) => b.createdAt - a.createdAt);
-        setAllFamilyBooks(data);
-      },
-      (error) => {
-        console.error("Error fetching books:", error);
-      },
-    );
+    const unsubBooks = onSnapshot(booksRef, (snapshot) => {
+      const data = [];
+      snapshot.forEach((doc) => data.push({ id: doc.id, ...doc.data() }));
+      setAllFamilyBooks(data);
+    });
 
-    return () => unsubscribe();
+    const unsubProgress = onSnapshot(progressRef, (snapshot) => {
+      const pData = [];
+      snapshot.forEach((doc) => pData.push({ id: doc.id, ...doc.data() }));
+      setUserProgressList(pData);
+    });
+
+    return () => {
+      unsubBooks();
+      unsubProgress();
+    };
   }, [firebaseUser, appUser]);
 
   if (loading)
@@ -280,11 +289,17 @@ export default function App() {
       ? THEMES.parent
       : THEMES[APP_CONFIG.allowedUsers[activeKidEmail]?.themeId || "mei"];
 
-  const visibleBooks = allFamilyBooks.filter(
-    (b) => b.ownerEmail === activeKidEmail,
-  );
-  const activeKidConfig =
-    APP_CONFIG.allowedUsers[activeKidEmail?.toLowerCase()];
+  // Books I am currently reading
+  const myReadingProgress = userProgressList.filter(p => p.userEmail === activeKidEmail);
+  const myBooks = myReadingProgress.map(p => {
+    const book = allFamilyBooks.find(b => b.id === p.bookId);
+    return book ? { ...book, progress: p } : null;
+  }).filter(Boolean);
+
+  // Books available in the library (added by anyone)
+  const libraryBooks = allFamilyBooks;
+
+  const activeKidConfig = APP_CONFIG.allowedUsers[activeKidEmail?.toLowerCase()];
 
   return (
     <div
@@ -313,13 +328,16 @@ export default function App() {
                 themes={THEMES}
                 onSelectKid={(email) => {
                   setActiveKidEmail(email);
+                  setListTab("my");
                   setView("list");
                 }}
               />
             )}
             {view === "list" && (
               <BookList
-                books={visibleBooks}
+                books={listTab === "my" ? myBooks : libraryBooks}
+                tab={listTab}
+                setTab={setListTab}
                 theme={currentTheme}
                 onAdd={() => setView("add")}
                 onSelect={(b) => {
@@ -338,6 +356,7 @@ export default function App() {
             {view === "detail" && (
               <BookDetail
                 book={selectedBook}
+                userEmail={activeKidEmail}
                 theme={currentTheme}
                 onBack={() => setView("list")}
               />
@@ -411,40 +430,62 @@ function ParentDashboard({ config, themes, onSelectKid }) {
   );
 }
 
-function BookList({ books, theme, onAdd, onSelect }) {
+function BookList({ books, tab, setTab, theme, onAdd, onSelect }) {
   return (
     <div className="space-y-6">
+      <div className={`flex p-1 rounded-2xl w-full mb-4 ${theme.secondary}`}>
+        <button onClick={() => setTab('my')} className={`flex-1 py-3 rounded-xl font-bold text-sm transition ${tab === 'my' ? `${theme.card} shadow-sm ${theme.text}` : theme.textMuted}`}>My Books</button>
+        <button onClick={() => setTab('library')} className={`flex-1 py-3 rounded-xl font-bold text-sm transition ${tab === 'library' ? `${theme.card} shadow-sm ${theme.text}` : theme.textMuted}`}>Family Library</button>
+      </div>
+
       {books.length === 0 ? (
         <div className="text-center py-12 px-4">
           <div className="text-6xl mb-4 opacity-50">{theme.icon}</div>
-          <h2 className={`text-xl font-bold mb-2 ${theme.textMuted}`}>No books yet!</h2>
-          <button onClick={onAdd} className={`mt-6 px-6 py-3 rounded-full text-white font-bold shadow-lg flex items-center justify-center mx-auto space-x-2 ${theme.primary}`}>
-            <Plus size={20} /> <span>Add a Book</span>
-          </button>
+          <h2 className={`text-xl font-bold mb-2 ${theme.textMuted}`}>{tab === 'my' ? "You aren't reading anything yet!" : "Library is empty!"}</h2>
+          {tab === 'my' && (
+             <button onClick={() => setTab('library')} className={`mt-6 px-6 py-3 rounded-full text-white font-bold shadow-lg flex items-center justify-center mx-auto space-x-2 ${theme.primary}`}>
+               <BookOpen size={20} /> <span>Browse Library</span>
+             </button>
+          )}
         </div>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-4">
             {books.map(book => {
-              const totalItems = book.toc?.length || 0;
-              const completedItems = book.toc?.filter(item => item.completed).length || 0;
-              const percent = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+              let percent = 0;
+              if (tab === 'my' && book.progress) {
+                const totalLogged = Object.values(book.progress.logs || {}).reduce((sum, log) => sum + (log.pagesRead || 0), 0);
+                percent = Math.min(100, Math.round((totalLogged / (book.progress.totalPages || 1)) * 100));
+              }
+
               return (
                 <div key={book.id} onClick={() => onSelect(book)} className={`${theme.card} rounded-3xl p-4 shadow-sm border ${theme.border} cursor-pointer hover:shadow-md transition transform hover:-translate-y-1`}>
                   <div className="aspect-[3/4] bg-gray-100 rounded-2xl mb-3 overflow-hidden relative shadow-inner flex items-center justify-center">
                     {book.coverUrl ? <img src={book.coverUrl} alt="cover" className="w-full h-full object-cover" /> : <BookOpen size={40} className="text-gray-300" />}
+                    {tab === 'library' && (
+                       <div className="absolute top-2 right-2 bg-white/90 px-2 py-1 rounded-full text-[10px] font-bold shadow-sm">
+                         By {APP_CONFIG.allowedUsers[book.ownerEmail.toLowerCase()]?.name || '??'}
+                       </div>
+                    )}
                   </div>
                   <h3 className={`font-bold line-clamp-1 text-sm ${theme.text}`}>{book.title || 'Untitled Book'}</h3>
                   <p className={`text-xs mb-2 line-clamp-1 ${theme.textMuted}`}>{book.author || 'Unknown Author'}</p>
-                  <div className="w-full bg-gray-100 rounded-full h-2 mt-auto">
-                    <div className={`${theme.primary} h-2 rounded-full transition-all`} style={{ width: `${percent}%` }}></div>
-                  </div>
-                  <div className="text-[10px] text-right mt-1 text-gray-400 font-bold">{percent}%</div>
+                  
+                  {tab === 'my' && (
+                    <>
+                      <div className="w-full bg-gray-100 rounded-full h-2 mt-auto">
+                        <div className={`${theme.primary} h-2 rounded-full transition-all`} style={{ width: `${percent}%` }}></div>
+                      </div>
+                      <div className="text-[10px] text-right mt-1 text-gray-400 font-bold">{percent}%</div>
+                    </>
+                  )}
                 </div>
               );
             })}
           </div>
-          <button onClick={onAdd} className={`fixed bottom-6 right-6 w-14 h-14 rounded-full text-white shadow-xl flex items-center justify-center transition-transform hover:scale-105 active:scale-95 ${theme.primary}`}><Plus size={28} /></button>
+          {tab === 'my' && (
+            <button onClick={onAdd} className={`fixed bottom-6 right-6 w-14 h-14 rounded-full text-white shadow-xl flex items-center justify-center transition-transform hover:scale-105 active:scale-95 ${theme.primary}`}><Plus size={28} /></button>
+          )}
         </>
       )}
     </div>
@@ -454,102 +495,140 @@ function BookList({ books, theme, onAdd, onSelect }) {
 function AddBook({ theme, ownerEmail, onBack }) {
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState("");
-  const [coverUrl, setCoverUrl] = useState(null);
+  const [bookImages, setBookImages] = useState([]); // 1st is cover
+  const [tocImages, setTocImages] = useState([]);
   const [toc, setToc] = useState([]);
   
-  const [isProcessingCover, setIsProcessingCover] = useState(false);
-  const [isProcessingToc, setIsProcessingToc] = useState(false);
+  const [tags, setTags] = useState([]);
+  const [summary, setSummary] = useState("");
+
+  // Progress tracking fields
+  const [totalPages, setTotalPages] = useState('');
+  const [readingGoal, setReadingGoal] = useState('');
+  const [dueDate, setDueDate] = useState('');
+
+  const [isProcessingAI, setIsProcessingAI] = useState(false);
   const [saving, setSaving] = useState(false);
   const [aiError, setAiError] = useState('');
 
-  const handleCoverUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const updatePages = (val) => {
+    setTotalPages(val);
+    if (val && readingGoal) {
+      const days = Math.ceil(parseInt(val) / parseInt(readingGoal));
+      const date = new Date();
+      date.setDate(date.getDate() + days);
+      setDueDate(date.toISOString().split('T')[0]);
+    }
+  };
+
+  const handleImageUpload = async (e, isToc = false) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+    
+    setIsProcessingAI(true);
+    setAiError("Compressing photos...");
     try {
-      const compressed = await compressImage(file, 800);
-      setIsProcessingCover(true);
-      setAiError("Analyzing & Straightening...");
+      const compressedFiles = await Promise.all(
+        files.map(file => compressImage(file, isToc ? 1024 : 800))
+      );
+      if (isToc) setTocImages([...tocImages, ...compressedFiles]);
+      else setBookImages([...bookImages, ...compressedFiles]);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsProcessingAI(false);
+      setAiError("");
+    }
+  };
 
-      const prompt = `Analyze this book cover. 
-      1. Find the 4 corners of the book cover (tl, tr, br, bl) as [x,y] coordinates (0-1000).
-      2. Identify the title and author.
-      Return ONLY a JSON object: {"corners": {"tl":[x,y], "tr":[x,y], "br":[x,y], "bl":[x,y]}, "title": "...", "author": "..."}`;
+  const handleAnalyzeAll = async () => {
+    if (bookImages.length === 0) return alert("Please upload at least the book cover!");
+    
+    setIsProcessingAI(true);
+    setAiError("AI is reading everything... This may take a moment.");
+    try {
+      const prompt = `Analyze these book images. 
+      Group 1 (First ${bookImages.length} images): Front cover and info pages. The 1st image is the FRONT COVER.
+      Group 2 (Next ${tocImages.length} images): Table of Contents pages.
 
-      const result = await callGemini(prompt, compressed, true);
+      1. From Group 1: Identify title, author, Audience (Kid/Teen/Adult), Genre tags, and provide a 1-2 sentence summary.
+      2. Find the 4 corners of the FRONT COVER (the very 1st image) as [x,y] coordinates (0-1000) for straightening.
+      3. From Group 2: Identify all chapters/sections in order with page numbers.
+      4. From any group: Identify total pages.
+
+      Return ONLY a JSON object: {
+        "corners": {"tl":[x,y], "tr":[x,y], "br":[x,y], "bl":[x,y]}, 
+        "title": "...", 
+        "author": "...", 
+        "totalPages": 0, 
+        "tags": ["...", "..."], 
+        "summary": "...",
+        "toc": [{"id": "...", "title": "...", "page": "...", "completed": false, "notes": []}]
+      }`;
+
+      const allImages = [...bookImages, ...tocImages];
+      const result = await callGemini(prompt, allImages, true);
       const data = JSON.parse(result);
       
-      if (data.corners) {
-        const rectified = await warpImage(compressed, data.corners, 600, 850);
-        setCoverUrl(rectified);
-      } else {
-        setCoverUrl(compressed);
+      if (data.corners && bookImages[0]) {
+        const rectified = await warpImage(bookImages[0], data.corners, 600, 850);
+        const newBookImages = [...bookImages];
+        newBookImages[0] = rectified;
+        setBookImages(newBookImages);
       }
       
       if (data.title) setTitle(data.title);
       if (data.author) setAuthor(data.author);
+      if (data.totalPages) updatePages(data.totalPages.toString());
+      if (data.tags) setTags(data.tags);
+      if (data.summary) setSummary(data.summary);
+      if (data.toc && data.toc.length > 0) {
+        setToc(data.toc.map(item => ({ ...item, completed: false, notes: [] })));
+      }
     } catch (err) {
-      if (err.message === "RATE_LIMIT") {
-        setAiError("AI is busy (limit reached). Please wait a minute before retrying.");
-      } else {
-        setAiError("Couldn't auto-read the cover. You can type details manually!");
-      }
-      console.error("Cover upload error:", err);
-    } finally { setIsProcessingCover(false); }
-  };
-
-  const handleTocUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    try {
-      const compressed = await compressImage(file, 1024);
-      setIsProcessingToc(true);
-      setAiError("Analyzing & Straightening...");
-
-      const prompt = `Analyze this Table of Contents image. 
-      1. Find the 4 corners of the page (tl, tr, br, bl) as [x,y] coordinates (0-1000).
-      2. Create a checklist of chapters/sections.
-      Return ONLY a JSON object: {"corners": {"tl":[x,y], "tr":[x,y], "br":[x,y], "bl":[x,y]}, "toc": [{"id": "...", "title": "...", "page": "...", "completed": false, "notes": []}]}`;
-
-      const result = await callGemini(prompt, compressed, true);
-      const data = JSON.parse(result);
-
-      if (data.corners) {
-        await warpImage(compressed, data.corners, 800, 1100);
-        // Warping performed, but not currently used for storage in ToC
-      }
-
-      if (Array.isArray(data.toc) && data.toc.length > 0) {
-        setToc(
-          data.toc.map((item) => ({ ...item, completed: false, notes: [] })),
-        );
-      } else throw new Error("Invalid format");
-    } catch (err) {
-      if (err.message === "RATE_LIMIT") {
-        setAiError("AI is busy (limit reached). Please wait a minute before retrying.");
-      } else {
-        setAiError("Couldn't build the ToC from image. Try taking a clearer picture!");
-      }
-      console.error("ToC upload error:", err);
-    } finally { setIsProcessingToc(false); }
+      setAiError("AI had trouble reading everything. You can check details manually!");
+      console.error("Analysis error:", err);
+    } finally { setIsProcessingAI(false); }
   };
 
   const handleSave = async () => {
     if (!title.trim()) return alert("Please enter a book title!");
+    if (!totalPages || isNaN(parseInt(totalPages))) return alert("Please enter total pages!");
+    
     setSaving(true);
     try {
+      // 1. Save Master Book
+      const bookDocRef = doc(collection(db, 'family_books'));
       const newBook = {
+        id: bookDocRef.id,
         title,
         author,
-        totalPages: "",
-        coverUrl: coverUrl || "",
+        coverUrl: bookImages[0] || "",
         toc,
+        tags,
+        summary,
         ownerEmail,
         createdAt: Date.now(),
       };
-      const newDocRef = doc(collection(db, 'family_books'));
-      await setDoc(newDocRef, newBook);
+      await setDoc(bookDocRef, newBook);
+
+      // 2. Start Progress for this user
+      const progressDocRef = doc(collection(db, 'reading_progress'));
+      const newProgress = {
+        bookId: bookDocRef.id,
+        userEmail: ownerEmail,
+        totalPages: parseInt(totalPages),
+        readingGoal: parseInt(readingGoal || 10),
+        dueDate: dueDate,
+        startDate: Date.now(),
+        lastPageRead: 0,
+        logs: {}
+      };
+      await setDoc(progressDocRef, newProgress);
+
       onBack();
-    } catch {
+    } catch (err) {
+      console.error(err);
       alert("Failed to save book.");
     } finally { setSaving(false); }
   };
@@ -561,38 +640,100 @@ function AddBook({ theme, ownerEmail, onBack }) {
         <h2 className="text-2xl font-bold">Add New Book</h2>
       </div>
 
-      {aiError && <div className="p-3 bg-red-100 text-red-700 rounded-xl text-sm font-medium">{aiError}</div>}
+      {aiError && <div className="p-3 bg-blue-100 text-blue-700 rounded-xl text-xs font-medium animate-pulse">{aiError}</div>}
 
-      <div className={`${theme.card} p-6 rounded-3xl shadow-sm border ${theme.border} text-center relative overflow-hidden`}>
-        {coverUrl ? <img src={coverUrl} alt="Preview" className="w-32 h-auto mx-auto rounded-xl shadow-md mb-4" /> : 
-          <div className={`w-24 h-32 mx-auto rounded-xl ${theme.bg} flex items-center justify-center mb-4 border-2 border-dashed ${theme.border}`}><BookOpen size={32} className={theme.primaryText} opacity={0.5} /></div>}
-        <label className={`cursor-pointer inline-flex items-center space-x-2 px-4 py-2 rounded-full font-bold ${isProcessingCover ? 'bg-gray-200 text-gray-500' : theme.secondary}`}>
-          {isProcessingCover ? <Sparkles className="animate-spin" size={18} /> : <Camera size={18} />}
-          <span>{isProcessingCover ? 'Scanning Cover...' : 'Snap Book Cover'}</span>
-          <input type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} disabled={isProcessingCover} />
-        </label>
+      <div className="grid grid-cols-1 gap-4">
+        <div className={`${theme.card} p-6 rounded-3xl shadow-sm border ${theme.border} text-center relative`}>
+          <div className="flex flex-wrap gap-3 mb-4 justify-center">
+            {bookImages.map((img, i) => (
+              <div key={i} className="relative">
+                <img src={img} className={`w-20 h-28 rounded-xl object-cover border-2 ${i === 0 ? 'border-pink-400' : 'border-gray-200'}`} alt="Book Photo" />
+                {i === 0 && <span className="absolute -top-2 -left-2 bg-pink-500 text-white text-[8px] px-2 py-0.5 rounded-full font-black uppercase shadow-sm">Cover</span>}
+                <button onClick={() => setBookImages(bookImages.filter((_, idx) => idx !== i))} className="absolute -top-2 -right-2 bg-white text-gray-500 rounded-full p-1 shadow-md border">✕</button>
+              </div>
+            ))}
+            {bookImages.length === 0 && <div className={`w-20 h-28 rounded-xl ${theme.bg} flex items-center justify-center border-2 border-dashed ${theme.border}`}><BookOpen size={24} className={theme.primaryText} opacity={0.5} /></div>}
+          </div>
+          <label className={`cursor-pointer inline-flex items-center justify-center space-x-2 px-6 py-3 rounded-full font-bold text-sm ${theme.primary} text-white shadow-lg transition-transform hover:scale-105`}>
+            <Camera size={18} />
+            <span>{bookImages.length > 0 ? 'Add More Photos' : 'Select Book Photos'}</span>
+            <input type="file" accept="image/*" multiple className="hidden" onChange={e => handleImageUpload(e, false)} />
+          </label>
+          <p className="text-[10px] text-gray-400 mt-2 font-bold uppercase tracking-widest">Select multiple: Cover + Back + Info</p>
+        </div>
+
+        <div className={`${theme.card} p-6 rounded-3xl shadow-sm border ${theme.border} text-center`}>
+          <div className="flex flex-wrap gap-2 mb-4 justify-center">
+            {tocImages.map((img, i) => (
+              <div key={i} className="relative">
+                <img src={img} className="w-12 h-16 rounded-md object-cover border" alt="ToC Page" />
+                <button onClick={() => setTocImages(tocImages.filter((_, idx) => idx !== i))} className="absolute -top-1 -right-1 bg-white text-gray-500 rounded-full p-0.5 shadow-sm border">✕</button>
+              </div>
+            ))}
+            {tocImages.length === 0 && <div className={`w-12 h-16 rounded-md ${theme.bg} border-2 border-dashed ${theme.border}`} />}
+          </div>
+          <label className={`cursor-pointer inline-flex items-center justify-center space-x-2 px-4 py-2 rounded-full font-bold text-xs ${theme.secondary}`}>
+            <Camera size={14} />
+            <span>Add ToC Pages</span>
+            <input type="file" accept="image/*" multiple className="hidden" onChange={e => handleImageUpload(e, true)} />
+          </label>
+        </div>
       </div>
+
+      {(bookImages.length > 0 || tocImages.length > 0) && !title && (
+        <button onClick={handleAnalyzeAll} disabled={isProcessingAI} className={`w-full py-4 rounded-2xl text-white font-bold text-lg shadow-lg flex items-center justify-center space-x-2 ${isProcessingAI ? 'bg-gray-400' : 'bg-gradient-to-r from-purple-500 to-pink-500'}`}>
+          {isProcessingAI ? <Sparkles className="animate-spin" size={20} /> : <Sparkles size={20} />}
+          <span>{isProcessingAI ? 'AI is Processing...' : 'AI Magic: Process Everything'}</span>
+        </button>
+      )}
 
       <div className={`${theme.card} p-6 rounded-3xl shadow-sm border ${theme.border} space-y-4`}>
         <div>
-          <label className={`block text-sm font-bold mb-1 ml-2 ${theme.textMuted}`}>Book Title</label>
+          <label className={`block text-xs font-bold mb-1 ml-2 ${theme.textMuted}`}>Book Title</label>
           <input type="text" value={title} onChange={e => setTitle(e.target.value)} className={`w-full p-4 rounded-2xl border-none focus:ring-2 focus:ring-pink-300 font-bold ${theme.bg} ${theme.text}`} placeholder="E.g. The Hobbit" />
         </div>
         <div>
-          <label className={`block text-sm font-bold mb-1 ml-2 ${theme.textMuted}`}>Author</label>
+          <label className={`block text-xs font-bold mb-1 ml-2 ${theme.textMuted}`}>Author</label>
           <input type="text" value={author} onChange={e => setAuthor(e.target.value)} className={`w-full p-4 rounded-2xl border-none focus:ring-2 focus:ring-pink-300 ${theme.bg} ${theme.text}`} placeholder="Who wrote it?" />
+        </div>
+        
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-2 px-2">
+            {tags.map((tag, i) => (
+              <span key={i} className={`px-2 py-1 rounded-lg text-[10px] font-bold ${theme.secondary}`}>{tag}</span>
+            ))}
+          </div>
+        )}
+        
+        {summary && (
+          <div className="px-2">
+             <label className={`block text-[10px] font-bold mb-1 uppercase ${theme.textMuted}`}>Summary</label>
+             <p className={`text-xs italic leading-relaxed ${theme.text}`}>{summary}</p>
+          </div>
+        )}
+      </div>
+
+      <div className={`${theme.card} p-6 rounded-3xl shadow-sm border ${theme.border} grid grid-cols-2 gap-4`}>
+        <div className="col-span-1">
+          <label className={`block text-[10px] font-bold mb-1 ml-2 uppercase ${theme.textMuted}`}>Total Pages</label>
+          <input type="number" value={totalPages} onChange={e => updatePages(e.target.value)} className={`w-full p-3 rounded-xl border-none ${theme.bg} ${theme.text} font-bold`} placeholder="300" />
+        </div>
+        <div className="col-span-1">
+          <label className={`block text-[10px] font-bold mb-1 ml-2 uppercase ${theme.textMuted}`}>Goal (Pages/Day)</label>
+          <input type="number" value={readingGoal} onChange={e => setReadingGoal(e.target.value)} className={`w-full p-3 rounded-xl border-none ${theme.bg} ${theme.text} font-bold`} placeholder="10" />
+        </div>
+        <div className="col-span-2">
+          <label className={`block text-[10px] font-bold mb-1 ml-2 uppercase ${theme.textMuted}`}>Target Finish Date</label>
+          <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className={`w-full p-3 rounded-xl border-none ${theme.bg} ${theme.text}`} />
         </div>
       </div>
 
       <div className={`${theme.card} p-6 rounded-3xl shadow-sm border ${theme.border}`}>
         <div className="flex justify-between items-center mb-4">
-          <h3 className="font-bold text-gray-800">Chapters / Parts</h3>
-          <label className={`cursor-pointer flex items-center space-x-1 px-3 py-1.5 rounded-full text-xs font-bold ${isProcessingToc ? 'bg-gray-200 text-gray-500' : theme.secondary}`}>
-            {isProcessingToc ? <Sparkles className="animate-spin" size={14} /> : <Camera size={14} />}
-            <span>{isProcessingToc ? 'Scanning...' : 'Scan ToC'}</span>
-            <input type="file" accept="image/*" className="hidden" onChange={handleTocUpload} disabled={isProcessingToc} />
-          </label>
+          <h3 className="font-bold text-gray-800">Chapters Checklist</h3>
         </div>
+
+
 
         {toc.length > 0 ? (
           <div className="space-y-2 mb-4 max-h-48 overflow-y-auto pr-2">
@@ -604,7 +745,7 @@ function AddBook({ theme, ownerEmail, onBack }) {
               </div>
             ))}
           </div>
-        ) : <div className={`text-center py-6 text-sm border-2 border-dashed rounded-xl mb-4 ${theme.textMuted} ${theme.border}`}>Scan the Table of Contents page to automatically create a checklist!</div>}
+        ) : tocImages.length === 0 && <div className={`text-center py-6 text-sm border-2 border-dashed rounded-xl mb-4 ${theme.textMuted} ${theme.border}`}>Scan the Table of Contents page(s) to automatically create a checklist!</div>}
         
         <button onClick={() => setToc([...toc, { id: Date.now().toString(), title: `Chapter ${toc.length + 1}`, page: '', completed: false, notes: [] }])} className={`w-full py-3 rounded-xl border-2 border-dashed font-bold transition flex items-center justify-center space-x-2 ${theme.border} ${theme.textMuted} hover:${theme.bg}`}>
           <Plus size={16} /> <span>Add Chapter Manually</span>
@@ -618,11 +759,12 @@ function AddBook({ theme, ownerEmail, onBack }) {
   );
 }
 
-function BookDetail({ book, theme, onBack }) {
+function BookDetail({ book, userEmail, theme, onBack }) {
   const [localBook, setLocalBook] = useState(book);
   const [activeTab, setActiveTab] = useState('progress');
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [activeChapterForNote, setActiveChapterForNote] = useState(null);
+  const [showCheckIn, setShowCheckIn] = useState(false);
 
   const saveUpdates = async (updatedBook) => {
     setLocalBook(updatedBook);
@@ -630,14 +772,62 @@ function BookDetail({ book, theme, onBack }) {
     await updateDoc(bookRef, updatedBook);
   };
 
+  const saveProgress = async (updatedProgress) => {
+    setLocalBook({ ...localBook, progress: updatedProgress });
+    const progressRef = doc(db, 'reading_progress', updatedProgress.id);
+    await updateDoc(progressRef, updatedProgress);
+  };
+
   const toggleChapter = (chapterId) => {
     const updatedToc = localBook.toc.map(ch => ch.id === chapterId ? { ...ch, completed: !ch.completed } : ch);
     saveUpdates({ ...localBook, toc: updatedToc });
   };
 
-  const totalChapters = localBook.toc?.length || 0;
-  const completedChapters = localBook.toc?.filter(ch => ch.completed).length || 0;
-  const progressPercent = totalChapters === 0 ? 0 : Math.round((completedChapters / totalChapters) * 100);
+  const handleStartReading = async () => {
+    const totalPages = prompt("How many total pages in this book?", "300");
+    const goal = prompt("How many pages do you want to read per day?", "10");
+    if (!totalPages || !goal) return;
+
+    const progressDocRef = doc(collection(db, 'reading_progress'));
+    const newProgress = {
+      id: progressDocRef.id,
+      bookId: localBook.id,
+      userEmail: userEmail,
+      totalPages: parseInt(totalPages),
+      readingGoal: parseInt(goal),
+      startDate: Date.now(),
+      logs: {}
+    };
+    await setDoc(progressDocRef, newProgress);
+    setLocalBook({ ...localBook, progress: newProgress });
+  };
+
+  const progress = localBook.progress;
+  const totalLogged = progress ? Object.values(progress.logs || {}).reduce((sum, log) => sum + (log.pagesRead || 0), 0) : 0;
+  const progressPercent = progress ? Math.min(100, Math.round((totalLogged / progress.totalPages) * 100)) : 0;
+
+  // Calculate day stats
+  const getDayStats = () => {
+    if (!progress) return { completed: 0, partial: 0, missed: 0 };
+    const start = new Date(progress.startDate);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    
+    let completed = 0, partial = 0, missed = 0;
+    for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
+      const dateStr = d.toISOString().split('T')[0];
+      const log = progress.logs[dateStr];
+      if (log) {
+        if (log.pagesRead >= progress.readingGoal) completed++;
+        else partial++;
+      } else {
+        missed++;
+      }
+    }
+    return { completed, partial, missed };
+  };
+
+  const stats = getDayStats();
 
   return (
     <div className="space-y-6 pb-24 animate-in fade-in slide-in-from-right-4">
@@ -652,43 +842,71 @@ function BookDetail({ book, theme, onBack }) {
         </div>
       </div>
 
-      <div className={`${theme.card} p-6 rounded-[2rem] shadow-sm border ${theme.border} text-center`}>
-        <h3 className={`font-bold mb-2 uppercase tracking-wider text-xs ${theme.textMuted}`}>Reading Progress</h3>
-        <div className="text-5xl font-black mb-4"><span className={theme.primaryText}>{progressPercent}%</span></div>
-        <div className={`w-full rounded-full h-4 mb-2 shadow-inner overflow-hidden ${theme.bg}`}>
-          <div className={`${theme.primary} h-full rounded-full transition-all duration-500`} style={{ width: `${progressPercent}%` }}></div>
-        </div>
-        <p className={`text-sm font-bold ${theme.textMuted}`}>{completedChapters} of {totalChapters} chapters done</p>
-      </div>
-
-      <div className={`flex p-1 rounded-full w-max mx-auto mb-6 ${theme.secondary}`}>
-        <button onClick={() => setActiveTab('progress')} className={`px-6 py-2 rounded-full font-bold text-sm transition ${activeTab === 'progress' ? `${theme.card} shadow-sm ${theme.text}` : theme.textMuted}`}>Chapters</button>
-        <button onClick={() => setActiveTab('notes')} className={`px-6 py-2 rounded-full font-bold text-sm transition ${activeTab === 'notes' ? `${theme.card} shadow-sm ${theme.text}` : theme.textMuted}`}>All Notes</button>
-      </div>
-
-      {activeTab === 'progress' ? (
-        <div className="space-y-3">
-          {localBook.toc?.map((chapter) => (
-            <div key={chapter.id} className={`${theme.card} p-4 rounded-2xl shadow-sm border ${theme.border} flex items-center space-x-4 transition ${chapter.completed ? 'opacity-70' : ''}`}>
-              <button onClick={() => toggleChapter(chapter.id)} className={`w-8 h-8 rounded-full flex items-center justify-center border-2 shrink-0 transition ${chapter.completed ? `${theme.primary} border-transparent text-white` : `border-gray-300 text-transparent hover:border-gray-400`}`}>
-                <CheckCircle size={20} className={chapter.completed ? 'block' : 'hidden'} />
-              </button>
-              <div className="flex-1 min-w-0">
-                <h4 className={`font-bold truncate ${chapter.completed ? `line-through ${theme.textMuted}` : theme.text}`}>{chapter.title}</h4>
-              </div>
-              <button onClick={() => { setActiveChapterForNote(chapter); setShowNoteModal(true); }} className={`p-2 rounded-full transition ${chapter.notes?.length > 0 ? theme.secondary : `hover:${theme.secondary} ${theme.textMuted}`}`}><Edit3 size={18} /></button>
-            </div>
-          ))}
+      {!progress ? (
+        <div className={`${theme.card} p-8 rounded-[2rem] shadow-sm border ${theme.border} text-center`}>
+          <Sparkles className="mx-auto mb-4 text-yellow-400" size={40} />
+          <h3 className="font-bold text-xl mb-2">Want to read this?</h3>
+          <p className={`text-sm mb-6 ${theme.textMuted}`}>Start tracking your reading progress and hit your daily goals!</p>
+          <button onClick={handleStartReading} className={`w-full py-4 rounded-2xl text-white font-bold text-lg shadow-lg ${theme.primary}`}>Start Reading</button>
         </div>
       ) : (
-        <div className="space-y-4">
-          {localBook.toc?.flatMap(ch => ch.notes?.map(n => ({...n, chTitle: ch.title})) || []).map((note, i) => (
-            <div key={i} className={`${theme.card} p-4 rounded-2xl shadow-sm border ${theme.border}`}>
-              <div className={`text-xs font-bold mb-2 ${theme.textMuted}`}>{note.chTitle}</div>
-              <p className={`whitespace-pre-wrap text-sm font-medium ${theme.text}`}>{note.text}</p>
+        <>
+          <div className={`${theme.card} p-6 rounded-[2rem] shadow-sm border ${theme.border} text-center`}>
+            <div className="flex justify-between items-center mb-4">
+               <h3 className={`font-bold uppercase tracking-wider text-[10px] ${theme.textMuted}`}>Progress Tracker</h3>
+               <button onClick={() => setShowCheckIn(true)} className={`px-4 py-1.5 rounded-full text-xs font-bold text-white shadow-md ${theme.primary}`}>Check-In</button>
             </div>
-          ))}
-        </div>
+            <div className="text-5xl font-black mb-4"><span className={theme.primaryText}>{progressPercent}%</span></div>
+            <div className={`w-full rounded-full h-4 mb-4 shadow-inner overflow-hidden ${theme.bg}`}>
+              <div className={`${theme.primary} h-full rounded-full transition-all duration-500`} style={{ width: `${progressPercent}%` }}></div>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-2">
+               <div className="bg-emerald-50 p-2 rounded-2xl">
+                 <div className="text-emerald-600 font-black text-lg">{stats.completed}</div>
+                 <div className="text-[8px] font-bold text-emerald-800 uppercase">Goal Met</div>
+               </div>
+               <div className="bg-orange-50 p-2 rounded-2xl">
+                 <div className="text-orange-600 font-black text-lg">{stats.partial}</div>
+                 <div className="text-[8px] font-bold text-orange-800 uppercase">Partial</div>
+               </div>
+               <div className="bg-rose-50 p-2 rounded-2xl">
+                 <div className="text-rose-600 font-black text-lg">{stats.missed}</div>
+                 <div className="text-[8px] font-bold text-rose-800 uppercase">Missed</div>
+               </div>
+            </div>
+          </div>
+
+          <div className={`flex p-1 rounded-full w-max mx-auto mb-6 ${theme.secondary}`}>
+            <button onClick={() => setActiveTab('progress')} className={`px-6 py-2 rounded-full font-bold text-sm transition ${activeTab === 'progress' ? `${theme.card} shadow-sm ${theme.text}` : theme.textMuted}`}>Chapters</button>
+            <button onClick={() => setActiveTab('notes')} className={`px-6 py-2 rounded-full font-bold text-sm transition ${activeTab === 'notes' ? `${theme.card} shadow-sm ${theme.text}` : theme.textMuted}`}>All Notes</button>
+          </div>
+
+          {activeTab === 'progress' ? (
+            <div className="space-y-3">
+              {localBook.toc?.map((chapter) => (
+                <div key={chapter.id} className={`${theme.card} p-4 rounded-2xl shadow-sm border ${theme.border} flex items-center space-x-4 transition ${chapter.completed ? 'opacity-70' : ''}`}>
+                  <button onClick={() => toggleChapter(chapter.id)} className={`w-8 h-8 rounded-full flex items-center justify-center border-2 shrink-0 transition ${chapter.completed ? `${theme.primary} border-transparent text-white` : `border-gray-300 text-transparent hover:border-gray-400`}`}>
+                    <CheckCircle size={20} className={chapter.completed ? 'block' : 'hidden'} />
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <h4 className={`font-bold truncate ${chapter.completed ? `line-through ${theme.textMuted}` : theme.text}`}>{chapter.title}</h4>
+                  </div>
+                  <button onClick={() => { setActiveChapterForNote(chapter); setShowNoteModal(true); }} className={`p-2 rounded-full transition ${chapter.notes?.length > 0 ? theme.secondary : `hover:${theme.secondary} ${theme.textMuted}`}`}><Edit3 size={18} /></button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {localBook.toc?.flatMap(ch => ch.notes?.map(n => ({...n, chTitle: ch.title})) || []).map((note, i) => (
+                <div key={i} className={`${theme.card} p-4 rounded-2xl shadow-sm border ${theme.border}`}>
+                  <div className={`text-xs font-bold mb-2 ${theme.textMuted}`}>{note.chTitle}</div>
+                  <p className={`whitespace-pre-wrap text-sm font-medium ${theme.text}`}>{note.text}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {showNoteModal && (
@@ -698,6 +916,95 @@ function BookDetail({ book, theme, onBack }) {
           setShowNoteModal(false);
         }}/>
       )}
+
+      {localBook.summary && (
+        <div className={`${theme.card} p-5 rounded-[2rem] shadow-sm border ${theme.border}`}>
+          <h3 className={`font-bold text-[10px] uppercase mb-2 ${theme.textMuted}`}>About this book</h3>
+          <p className={`text-xs leading-relaxed italic ${theme.text}`}>{localBook.summary}</p>
+          {localBook.tags?.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {localBook.tags.map((tag, i) => (
+                <span key={i} className={`px-2 py-1 rounded-lg text-[9px] font-bold ${theme.secondary}`}>{tag}</span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {showCheckIn && (
+        <CheckInModal 
+          progress={progress} 
+          theme={theme} 
+          onClose={() => setShowCheckIn(false)} 
+          onSave={async (pagesRead, currentPage) => {
+            const today = new Date().toISOString().split('T')[0];
+            const updatedLogs = { ...progress.logs, [today]: { pagesRead, currentPage, date: Date.now() } };
+            await saveProgress({ ...progress, logs: updatedLogs, lastPageRead: currentPage });
+            setShowCheckIn(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function CheckInModal({ progress, theme, onClose, onSave }) {
+  const [pagesRead, setPagesRead] = useState('');
+  const [currentPage, setCurrentPage] = useState(progress.lastPageRead?.toString() || '');
+  const [mode, setMode] = useState('count'); // count or page
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-6">
+      <div className={`w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 ${theme.card}`}>
+        <div className="text-center mb-6">
+          <h3 className="text-2xl font-black mb-1">Check-In</h3>
+          <p className={`text-xs font-bold uppercase tracking-widest ${theme.primaryText}`}>{today}</p>
+        </div>
+        
+        <div className="space-y-6">
+           <div className={`flex p-1 rounded-xl mb-4 ${theme.bg}`}>
+             <button onClick={() => setMode('count')} className={`flex-1 py-2 rounded-lg text-[10px] font-bold transition ${mode === 'count' ? `${theme.card} shadow-sm ${theme.text}` : theme.textMuted}`}>Pages Read</button>
+             <button onClick={() => setMode('page')} className={`flex-1 py-2 rounded-lg text-[10px] font-bold transition ${mode === 'page' ? `${theme.card} shadow-sm ${theme.text}` : theme.textMuted}`}>Current Page</button>
+           </div>
+
+           <div className="text-center">
+             {mode === 'count' ? (
+               <>
+                 <label className={`block text-[10px] font-bold uppercase mb-2 ${theme.textMuted}`}>How many pages read today?</label>
+                 <input autoFocus type="number" value={pagesRead} onChange={e => setPagesRead(e.target.value)} className={`w-full text-center text-4xl font-black p-4 rounded-3xl border-none ${theme.bg} ${theme.text}`} placeholder="0" />
+               </>
+             ) : (
+               <>
+                 <label className={`block text-[10px] font-bold uppercase mb-2 ${theme.textMuted}`}>What page are you on now?</label>
+                 <input autoFocus type="number" value={currentPage} onChange={e => setCurrentPage(e.target.value)} className={`w-full text-center text-4xl font-black p-4 rounded-3xl border-none ${theme.bg} ${theme.text}`} placeholder={progress.lastPageRead || "0"} />
+                 <p className="text-[10px] mt-2 font-bold text-gray-400">Last recorded: Page {progress.lastPageRead || 0}</p>
+               </>
+             )}
+           </div>
+           
+           <div className={`p-4 rounded-2xl border ${theme.border} flex justify-between items-center`}>
+              <span className={`text-xs font-bold ${theme.textMuted}`}>Goal: {progress.readingGoal} Pages</span>
+              <span className={`text-[10px] font-black ${theme.primaryText}`}>Total: {progress.totalPages} Pages</span>
+           </div>
+
+           <div className="flex space-x-3">
+             <button onClick={onClose} className={`flex-1 py-4 rounded-2xl font-bold ${theme.secondary}`}>Later</button>
+             <button onClick={() => {
+               let finalRead = parseInt(pagesRead) || 0;
+               let finalPage = progress.lastPageRead || 0;
+               
+               if (mode === 'page') {
+                 finalPage = parseInt(currentPage) || 0;
+                 finalRead = Math.max(0, finalPage - (progress.lastPageRead || 0));
+               } else {
+                 finalPage = (progress.lastPageRead || 0) + finalRead;
+               }
+               onSave(finalRead, finalPage);
+             }} className={`flex-[2] py-4 rounded-2xl text-white font-bold shadow-lg ${theme.primary}`}>Log Progress</button>
+           </div>
+        </div>
+      </div>
     </div>
   );
 }
