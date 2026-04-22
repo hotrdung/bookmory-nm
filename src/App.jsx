@@ -61,9 +61,14 @@ const callGemini = async (prompt, base64Image = null, isJson = false) => {
   
   const payload = { contents: [{ parts }], generationConfig: isJson ? { responseMimeType: "application/json" } : {} };
 
-  // Use a more conservative retry strategy for 429s
-  for (let attempt = 0, delay = 2000; attempt < 3; attempt++, delay *= 3) {
+  // Exponential backoff retry strategy for 429 and 5xx errors
+  let delay = 2000;
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
+      if (base64Image) {
+        console.log(`Sending image to Gemini (size: ${Math.round(base64Image.length / 1024)}KB)`);
+      }
+      
       const response = await fetch(url, { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
@@ -74,9 +79,8 @@ const callGemini = async (prompt, base64Image = null, isJson = false) => {
         const errorBody = await response.json().catch(() => ({}));
         console.error(`Gemini API Error (${response.status}):`, errorBody);
         
-        if (response.status === 429) {
-          throw new Error("RATE_LIMIT");
-        }
+        if (response.status === 429) throw new Error("RATE_LIMIT");
+        if (response.status >= 500) throw new Error(`SERVER_ERROR_${response.status}`);
         throw new Error(`HTTP_${response.status}`);
       }
       
@@ -86,9 +90,12 @@ const callGemini = async (prompt, base64Image = null, isJson = false) => {
       }
       return result.candidates[0].content.parts[0].text;
     } catch (e) {
-      // Don't retry on rate limit or if we've exhausted attempts
-      if (e.message === "RATE_LIMIT" || attempt === 2) throw e;
+      const isRetryable = e.message === "RATE_LIMIT" || e.message.startsWith("SERVER_ERROR");
+      if (attempt === 2 || !isRetryable) throw e;
+      
+      console.warn(`Attempt ${attempt + 1} failed: ${e.message}. Retrying in ${delay}ms...`);
       await new Promise(r => setTimeout(r, delay));
+      delay *= 2.5; // Exponential backoff
     }
   }
 };
@@ -102,12 +109,14 @@ const compressImage = (file, maxWidth = 800) => {
       img.src = event.target.result;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const scale = maxWidth / Math.max(img.width, 1);
+        // Only downscale if the image is wider than maxWidth
+        const scale = Math.min(1, maxWidth / img.width);
         canvas.width = img.width * scale;
         canvas.height = img.height * scale;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL("image/jpeg", 0.8));
+        // Use quality 0.7 for even smaller file size, enough for Gemini OCR
+        resolve(canvas.toDataURL("image/jpeg", 0.7));
       };
     };
   });
