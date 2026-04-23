@@ -23,6 +23,7 @@ import {
   ArrowUpDown,
   Menu,
   X,
+  Printer,
 } from "lucide-react";
 import { initializeApp } from "firebase/app";
 import {
@@ -338,6 +339,8 @@ export default function App() {
     setView("auth");
   };
 
+
+
   const handleExportData = () => {
     const data = {
       family_books: allFamilyBooks,
@@ -507,10 +510,9 @@ export default function App() {
         <div className="max-w-md mx-auto min-h-screen flex flex-col relative pb-20 md:pb-0">
           <Header
             theme={currentTheme}
-            title={
-              appUser.role === "parent" && view === "dashboard"
-                ? "Parent Hub"
-                : `${activeKidConfig?.name}'s Books`
+            username={
+              activeKidConfig?.name ||
+              (appUser.role === "parent" ? "Parent" : "Guest")
             }
             onLogout={handleLogout}
             showBack={appUser.role === "parent" && view !== "dashboard"}
@@ -550,14 +552,14 @@ export default function App() {
             {view === "add" && (
               <AddBook
                 theme={currentTheme}
-                ownerEmail={firebaseUser.email}
+                ownerEmail={appUser.email}
                 onBack={() => setView("list")}
               />
             )}
             {view === "edit" && (
               <AddBook
                 theme={currentTheme}
-                ownerEmail={firebaseUser.email}
+                ownerEmail={appUser.email}
                 bookToEdit={selectedBook}
                 onBack={() => setView("detail")}
               />
@@ -565,7 +567,8 @@ export default function App() {
             {view === "detail" && (
               <BookDetail
                 book={selectedBook}
-                userEmail={activeKidEmail || firebaseUser.email}
+                userEmail={activeKidEmail || appUser.email}
+                kidName={activeKidConfig?.name || appUser.name}
                 isParent={appUser?.role === "parent"}
                 theme={currentTheme}
                 onBack={() => setView("list")}
@@ -584,63 +587,100 @@ export default function App() {
 
 function LoginScreen({ onGoogleLogin }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-blue-100 to-pink-100 p-6">
-      <div className="bg-white p-8 rounded-[2rem] shadow-xl max-w-sm w-full text-center space-y-6">
-        <div>
-          <h1 className="text-4xl font-extrabold text-gray-800 mb-2">NM Bookmory</h1>
-          <p className="text-gray-500 font-medium">Read, track, and learn together!</p>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-[#FFF0F5] via-[#F5F9FF] to-[#EBF3FF] p-4 relative overflow-hidden">
+      {/* Decorative elements - "Clouds" */}
+      <div className="absolute -top-10 -left-20 w-64 h-64 bg-white/40 rounded-full blur-3xl animate-pulse"></div>
+      <div className="absolute top-1/2 -right-20 w-80 h-80 bg-white/30 rounded-full blur-3xl animate-pulse delay-700"></div>
+      <div className="absolute -bottom-10 left-10 w-48 h-48 bg-white/20 rounded-full blur-2xl animate-pulse delay-1000"></div>
+
+      {/* Floating icons */}
+      <div className="absolute top-10 left-6 text-2xl opacity-20 rotate-12 animate-bounce-slow">📚</div>
+      <div className="absolute bottom-16 right-6 text-2xl opacity-20 -rotate-12 animate-bounce-slow delay-500">✨</div>
+      <div className="absolute top-1/4 right-4 text-xl opacity-20 animate-pulse delay-200">🌸</div>
+      <div className="absolute bottom-1/4 left-4 text-xl opacity-20 animate-pulse delay-1000">🚀</div>
+
+      <div className="w-full max-w-[340px] text-center space-y-6 z-10">
+        <div className="space-y-6 animate-in fade-in slide-in-from-top-10 duration-700">
+          <div className="flex justify-center">
+            <img src="/assets/bookmory_logo.png" alt="Bookmory Logo" className="h-14 w-auto drop-shadow-sm" />
+          </div>
+          
+          <div className="relative inline-block">
+             <img src="/assets/bookmory_avatar.png" alt="Bookmory Avatar" className="w-40 h-40 mx-auto drop-shadow-xl animate-float" />
+             <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-28 h-5 bg-gray-200/20 blur-xl rounded-full -z-10"></div>
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-xl font-black text-gray-800 tracking-tight">Welcome to Bookmory!</h2>
+            <p className="text-gray-500 font-medium px-4 leading-relaxed text-xs">Let's track your reading adventure! Ready to explore stories? Sign in below.</p>
+          </div>
         </div>
-        <button 
-          onClick={onGoogleLogin}
-          className="w-full flex items-center justify-center space-x-3 p-4 bg-white border-2 border-gray-200 rounded-2xl hover:bg-gray-50 transition shadow-sm font-bold text-gray-700"
-        >
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6" />
-          <span>Sign in with Gmail</span>
-        </button>
+
+        <div className="space-y-6 animate-in zoom-in-95 duration-500 py-4">
+          <button 
+            onClick={onGoogleLogin}
+            className="w-full flex items-center justify-center space-x-3 p-4 bg-white/80 backdrop-blur-md border-2 border-white/50 rounded-3xl hover:border-blue-200 transition-all shadow-xl shadow-blue-500/5 font-black text-gray-700 active:scale-95 group"
+          >
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6 group-hover:rotate-12 transition-transform" />
+            <span className="text-sm tracking-tight">Sign in with Google Account</span>
+          </button>
+
+          <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em] opacity-80">Use your family email to join</p>
+        </div>
+        
+        <div className="pt-4">
+          <button className="text-[10px] font-bold text-gray-400 uppercase tracking-widest hover:text-gray-600 transition-colors">Create Family Account</button>
+        </div>
       </div>
     </div>
   );
 }
 
-function Header({ theme, title, onLogout, showBack, onBack, tab, setTab }) {
+function Header({ theme, username, onLogout, showBack, onBack, tab, setTab }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
     <header
-      className={`px-4 py-2 flex justify-between items-center ${theme.card} shadow-sm rounded-b-2xl z-20 sticky top-0`}
+      className={`relative px-4 py-2 flex justify-between items-center ${theme.card} shadow-sm rounded-b-2xl z-20 sticky top-0 min-h-[72px]`}
     >
-      <div className="flex items-center space-x-2 shrink-0">
-        {showBack ? (
+      <div className="flex items-center shrink-0 min-w-0 z-10">
+        {showBack && (
           <button
             onClick={onBack}
-            className={`p-2 -ml-2 rounded-full transition ${theme.secondary} ${theme.textMuted}`}
+            className={`p-2 -ml-2 mr-2 rounded-full transition bg-white/50 backdrop-blur-sm ${theme.secondary} ${theme.textMuted}`}
           >
-            <ChevronLeft size={20} />
+            <ChevronLeft size={24} />
           </button>
-        ) : (
-          <div
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-lg ${theme.bg}`}
-          >
-            {theme.icon}
-          </div>
         )}
-        <h1
-          className={`text-base font-bold truncate max-w-[160px] ${theme.primaryText}`}
-        >
-          {title}
-        </h1>
+        <img
+          src="/assets/bookmory_logo.png"
+          alt="Bookmory Logo"
+          className="h-10 w-auto drop-shadow-sm"
+        />
       </div>
 
-      <div className="flex items-center">
+      {tab && (
+        <div className="absolute left-14 top-2 inset-0 flex items-center justify-center pointer-events-none">
+          <span
+            className={`text-[14px] font-black uppercase tracking-[0.2em] opacity-80 ${theme.textMuted}`}
+          >
+            {tab === "my" ? "My Books" : "Family Library"}
+          </span>
+        </div>
+      )}
+
+      <div className="flex items-center z-10">
         {tab ? (
           <div className="relative">
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className={`p-2 rounded-xl transition ${theme.secondary} ${theme.textMuted} flex items-center space-x-1`}
+              className={`p-2 rounded-xl transition ${theme.secondary} ${theme.textMuted} flex items-center space-x-2`}
             >
-              <span className="text-[10px] font-black uppercase tracking-wider ml-1">
-                {tab === "my" ? "My" : "Library"}
-              </span>
+              <div className="flex flex-col items-end mr-1">
+                <span className="text-[14px] font-black uppercase tracking-wider">
+                  {username}
+                </span>
+              </div>
               {isMenuOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
 
@@ -1295,12 +1335,13 @@ function AddBook({ theme, ownerEmail, onBack, bookToEdit = null }) {
   );
 }
 
-function BookDetail({ book, userEmail, isParent, theme, onBack, onEdit, onDelete }) {
+function BookDetail({ book, userEmail, kidName, isParent, theme, onBack, onEdit, onDelete }) {
   const [localBook, setLocalBook] = useState(book);
   const [activeTab, setActiveTab] = useState('progress');
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [activeChapterForNote, setActiveChapterForNote] = useState(null);
   const [showCheckIn, setShowCheckIn] = useState(false);
+  const [showReport, setShowReport] = useState(false);
 
   const saveUpdates = async (updatedBook) => {
     setLocalBook(updatedBook);
@@ -1403,28 +1444,64 @@ function BookDetail({ book, userEmail, isParent, theme, onBack, onEdit, onDelete
         </div>
       ) : (
         <>
-          <div className={`${theme.card} p-6 rounded-[2rem] shadow-sm border ${theme.border} text-center`}>
-            <div className="flex justify-between items-center mb-4">
+          <div className={`${theme.card} p-6 rounded-[3rem] shadow-sm border ${theme.border} text-center relative overflow-hidden`}>
+            <div className="flex justify-between items-center mb-6">
                <h3 className={`font-bold uppercase tracking-wider text-[10px] ${theme.textMuted}`}>Progress Tracker</h3>
-               <button onClick={() => setShowCheckIn(true)} className={`px-4 py-1.5 rounded-full text-xs font-bold text-white shadow-md ${theme.primary}`}>Check-In</button>
-            </div>
-            <div className="text-5xl font-black mb-4"><span className={theme.primaryText}>{progressPercent}%</span></div>
-            <div className={`w-full rounded-full h-4 mb-4 shadow-inner overflow-hidden ${theme.bg}`}>
-              <div className={`${theme.primary} h-full rounded-full transition-all duration-500`} style={{ width: `${progressPercent}%` }}></div>
             </div>
             
-            <div className="grid grid-cols-3 gap-2">
-               <div className="bg-emerald-50 p-2 rounded-2xl">
-                 <div className="text-emerald-600 font-black text-lg">{stats.completed}</div>
-                 <div className="text-[8px] font-bold text-emerald-800 uppercase">Goal Met</div>
+            <div className="relative w-48 h-48 mx-auto mb-8 flex items-center justify-center">
+               <svg className="w-full h-full -rotate-90">
+                 <circle cx="96" cy="96" r="88" className="fill-none stroke-gray-100" strokeWidth="12" />
+                 <circle cx="96" cy="96" r="88" className={`fill-none ${theme.primaryText} stroke-current transition-all duration-1000`} strokeWidth="12" strokeDasharray={2 * Math.PI * 88} strokeDashoffset={2 * Math.PI * 88 * (1 - progressPercent/100)} strokeLinecap="round" />
+               </svg>
+               <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <div className={`text-5xl font-black ${theme.primaryText}`}>{progressPercent}%</div>
+                  <div className={`text-[10px] font-bold uppercase tracking-widest ${theme.textMuted}`}>Completed</div>
                </div>
-               <div className="bg-orange-50 p-2 rounded-2xl">
-                 <div className="text-orange-600 font-black text-lg">{stats.partial}</div>
-                 <div className="text-[8px] font-bold text-orange-800 uppercase">Partial</div>
+               <div className="absolute -right-2 top-1/2 -translate-y-1/2 text-3xl animate-bounce-slow">🐦</div>
+            </div>
+
+            <div className="text-center mb-8">
+               <h4 className={`text-xl font-black mb-1 ${theme.text}`}>Keep Reading, {kidName}! 📖✨</h4>
+               <p className={`text-xs font-bold ${theme.textMuted}`}>Check-in today's reading to hit your goal!</p>
+            </div>
+
+            <button onClick={() => setShowCheckIn(true)} className={`w-full py-5 rounded-[2rem] text-lg font-black text-white shadow-xl transition-all active:scale-95 flex items-center justify-center space-x-3 mb-8 ${theme.primary}`}>
+               <div className="bg-white/20 p-2 rounded-xl"><BookOpen size={24} /></div>
+               <span>Check-In</span>
+            </button>
+            
+            <div className="text-left mb-4 px-2">
+               <h3 className={`font-bold uppercase tracking-wider text-[10px] ${theme.textMuted}`}>Daily Goals</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+               <div className={`p-4 rounded-[2rem] border ${theme.border} relative overflow-hidden bg-orange-50/50 text-left`}>
+                  <div className="text-orange-500 mb-2 flex justify-between items-center">
+                     <span className="text-xl">🦊</span>
+                     <span className="text-[8px] font-black uppercase text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">Goal</span>
+                  </div>
+                  <div className={`text-[10px] font-black mb-1 ${theme.text}`}>Daily Goal</div>
+                  <div className="flex justify-between items-end">
+                     <span className={`text-[8px] font-bold ${theme.textMuted}`}>{progress.readingGoal} Pages</span>
+                     <span className={`text-[8px] font-black ${theme.primaryText}`}>{stats.completed > 0 ? '100%' : '0%'}</span>
+                  </div>
+                  <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden">
+                     <div className={`h-full ${stats.completed > 0 ? 'bg-orange-400' : 'bg-gray-300'} rounded-full`} style={{ width: stats.completed > 0 ? '100%' : '0%' }}></div>
+                  </div>
                </div>
-               <div className="bg-rose-50 p-2 rounded-2xl">
-                 <div className="text-rose-600 font-black text-lg">{stats.missed}</div>
-                 <div className="text-[8px] font-bold text-rose-800 uppercase">Missed</div>
+               <div className={`p-4 rounded-[2rem] border ${theme.border} relative overflow-hidden bg-emerald-50/50 text-left`}>
+                  <div className="text-emerald-500 mb-2 flex justify-between items-center">
+                     <span className="text-xl">🐰</span>
+                     {stats.completed > 0 ? <CheckCircle size={14} className="text-emerald-500" /> : <div className="w-3.5 h-3.5 rounded-full border-2 border-gray-300" />}
+                  </div>
+                  <div className={`text-[10px] font-black mb-1 ${theme.text}`}>Streak</div>
+                  <div className="flex justify-between items-end">
+                     <span className={`text-[8px] font-bold ${theme.textMuted}`}>{stats.completed} Days</span>
+                     <span className={`text-[8px] font-black text-emerald-600`}>Keep it up!</span>
+                  </div>
+                  <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden">
+                     <div className="h-full bg-emerald-400 rounded-full" style={{ width: stats.completed > 0 ? '100%' : '0%' }}></div>
+                  </div>
                </div>
             </div>
           </div>
@@ -1458,9 +1535,16 @@ function BookDetail({ book, userEmail, isParent, theme, onBack, onEdit, onDelete
             </div>
           )}
 
-          <div className={`flex p-1 rounded-full w-max mx-auto mb-6 ${theme.secondary}`}>
-            <button onClick={() => setActiveTab('progress')} className={`px-6 py-2 rounded-full font-bold text-sm transition ${activeTab === 'progress' ? `${theme.card} shadow-sm ${theme.text}` : theme.textMuted}`}>Chapters</button>
-            <button onClick={() => setActiveTab('notes')} className={`px-6 py-2 rounded-full font-bold text-sm transition ${activeTab === 'notes' ? `${theme.card} shadow-sm ${theme.text}` : theme.textMuted}`}>All Notes</button>
+          <div className="flex justify-center items-center mb-6 space-x-2">
+            <div className={`flex p-1 rounded-full w-max ${theme.secondary}`}>
+              <button onClick={() => setActiveTab('progress')} className={`px-6 py-2 rounded-full font-bold text-sm transition ${activeTab === 'progress' ? `${theme.card} shadow-sm ${theme.text}` : theme.textMuted}`}>Chapters</button>
+              <button onClick={() => setActiveTab('notes')} className={`px-6 py-2 rounded-full font-bold text-sm transition ${activeTab === 'notes' ? `${theme.card} shadow-sm ${theme.text}` : theme.textMuted}`}>All Notes</button>
+            </div>
+            {activeTab === 'notes' && (
+              <button onClick={() => setShowReport(true)} className={`p-2 rounded-full ${theme.primary} text-white shadow-md transition hover:scale-105`} title="Create Reading Report">
+                 <Printer size={20} />
+              </button>
+            )}
           </div>
 
           {activeTab === 'progress' ? (
@@ -1561,6 +1645,15 @@ function BookDetail({ book, userEmail, isParent, theme, onBack, onEdit, onDelete
         >
           Stop Reading & Remove from My Books
         </button>
+      )}
+
+      {showReport && (
+        <ReadingReportModal 
+          progress={progress} 
+          book={localBook} 
+          theme={theme} 
+          onClose={() => setShowReport(false)} 
+        />
       )}
     </div>
   );
@@ -1669,6 +1762,111 @@ function NoteModal({ chapter, theme, onClose, onSave }) {
           </div>
         </div>
         <button onClick={() => { if(text.trim()) onSave(text); else onClose(); }} className={`w-full py-4 rounded-2xl text-white font-bold text-lg shadow-lg ${theme.primary}`}>Save Note</button>
+      </div>
+    </div>
+  );
+}
+
+function ReadingReportModal({ progress, book, theme, onClose }) {
+  const [reportType, setReportType] = useState('summary');
+  const [content, setContent] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const allNotes = progress.toc?.flatMap(ch => ch.notes?.map(n => ({...n, chTitle: ch.title, page: ch.page})) || []) || [];
+
+  const generateSummary = async () => {
+    setIsLoading(true);
+    try {
+      const notesText = allNotes.map(n => `${n.chTitle}: ${n.text}`).join('\n');
+      
+      const prompt = `You are a friendly reading assistant for a kid. Write a cute, encouraging 1-page reading report for the book "${book.title}" by ${book.author}. 
+Here are the kid's notes:
+${notesText}
+
+Format the report with a friendly title, a short summary of what the book is about, a section highlighting their favorite parts (based on notes), and a cheerful conclusion. Use simple HTML formatting (like <h1>, <h2>, <p>, <ul>, <li>, <strong>) to make it look nice. Do NOT use Markdown formatting like asterisks or backticks in your final output, ONLY use HTML. Add some cute emojis. Keep it concise enough to fit on one A4 page.`;
+
+      const result = await callGemini(prompt, null, false);
+      let htmlContent = result;
+      // Strip markdown code blocks if gemini outputs them
+      htmlContent = htmlContent.replace(/```html/g, '').replace(/```/g, '');
+      setContent(htmlContent);
+    } catch (err) {
+      console.error(err);
+      setContent("<p>Oops, couldn't generate the report right now. Please try again later!</p>");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    if (reportType === 'summary' && !content) {
+      if (allNotes.length > 0) {
+        generateSummary();
+      } else {
+        setTimeout(() => {
+          if (isMounted) setContent("<p>You haven't written any notes yet! Add some notes while reading to get a cool AI summary.</p>");
+        }, 0);
+      }
+    }
+    return () => { isMounted = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reportType]);
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-white z-[100] overflow-y-auto flex flex-col">
+      <div className="print:hidden p-4 flex justify-between items-center bg-gray-50 border-b shrink-0">
+        <button onClick={onClose} className="p-2 bg-white rounded-full shadow-sm text-gray-500 hover:bg-gray-100 transition"><ChevronLeft size={24} /></button>
+        <div className="flex space-x-2 bg-white p-1 rounded-xl shadow-sm border border-gray-100">
+           <button onClick={() => setReportType('summary')} className={`px-4 py-2 rounded-lg text-sm font-bold transition ${reportType === 'summary' ? theme.primary + ' text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>AI Summary</button>
+           <button onClick={() => setReportType('full')} className={`px-4 py-2 rounded-lg text-sm font-bold transition ${reportType === 'full' ? theme.primary + ' text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>Full Notes</button>
+        </div>
+        <button onClick={handlePrint} className={`px-4 py-2 rounded-xl text-white font-bold shadow-md transition hover:opacity-90 flex items-center space-x-2 ${theme.primary}`}>
+           <Printer size={18} />
+           <span className="hidden sm:inline">Print</span>
+        </button>
+      </div>
+      
+      <div className="flex-1 p-8 print:p-0 max-w-3xl mx-auto w-full bg-white print:bg-transparent" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+        {reportType === 'summary' ? (
+          isLoading ? (
+            <div className="flex flex-col items-center justify-center h-64 space-y-4">
+               <Sparkles className={`animate-spin ${theme.primaryText}`} size={40} />
+               <p className="font-bold text-gray-500">Gemini is writing your cute report...</p>
+            </div>
+          ) : (
+            <div 
+              className={`max-w-none ${theme.text} [&_h1]:text-3xl [&_h1]:font-black [&_h1]:mb-4 [&_h1]:${theme.primaryText} [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h2]:mt-6 [&_h2]:${theme.primaryText} [&_p]:mb-4 [&_p]:leading-relaxed [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-4 [&_li]:mb-2 [&_strong]:font-black [&_strong]:${theme.primaryText}`} 
+              dangerouslySetInnerHTML={{ __html: content }} 
+            />
+          )
+        ) : (
+          <div className="space-y-6">
+            <div className={`text-center pb-6 border-b-4 ${theme.border}`}>
+              <h1 className={`text-3xl sm:text-4xl font-black mb-2 ${theme.primaryText}`}>My Notes: {book.title}</h1>
+              <p className={`text-lg font-bold ${theme.textMuted}`}>by {book.author}</p>
+            </div>
+            {allNotes.length === 0 ? (
+               <p className="text-center text-gray-400 italic mt-10">No notes yet!</p>
+            ) : (
+              <div className="space-y-4">
+                {allNotes.sort((a, b) => parseInt(a.page || 0) - parseInt(b.page || 0)).map((note, i) => (
+                  <div key={i} className={`p-5 rounded-2xl ${theme.bg} border ${theme.border} print:border-gray-300 print:bg-gray-50 break-inside-avoid shadow-sm`}>
+                    <div className="flex justify-between items-center mb-3">
+                       <span className={`font-bold text-sm ${theme.primaryText}`}>{note.chTitle}</span>
+                       {note.page && <span className={`text-xs font-bold px-2 py-1 rounded-lg bg-white shadow-sm border border-gray-100 ${theme.textMuted}`}>Page {note.page}</span>}
+                    </div>
+                    <p className={`whitespace-pre-wrap font-medium leading-relaxed ${theme.text}`}>{note.text}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
