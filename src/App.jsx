@@ -70,71 +70,71 @@ const APP_CONFIG = {
 
 // --- THEMES ---
 const THEMES = {
-  mei: { 
-    id: 'mei', 
-    name: 'Mei', 
-    bg: 'bg-[#FFF5F7]', 
-    card: 'bg-white', 
-    text: 'text-[#4A3B3F]', 
-    textMuted: 'text-[#A08E94]', 
-    primary: 'bg-[#FF85A1] hover:bg-[#FF6B8B]', 
-    primaryText: 'text-[#FF6B8B]', 
-    secondary: 'bg-[#FFE0E6] text-[#FF6B8B]', 
-    border: 'border-[#FFE0E6]', 
-    icon: '🌸' 
+  mei: {
+    id: "mei",
+    name: "Mei",
+    bg: "bg-[#FFF9FB]",
+    card: "bg-white",
+    text: "text-[#5D4148]",
+    textMuted: "text-[#B4979E]",
+    primary: "bg-[#FF94AD] hover:bg-[#FF758F]",
+    primaryText: "text-[#FF758F]",
+    secondary: "bg-[#FFE9ED] text-[#FF758F]",
+    border: "border-[#FFECF0]",
+    icon: "🌸",
   },
-  lele: { 
-    id: 'lele', 
-    name: 'Lele', 
-    bg: 'bg-[#2D0A12]', 
-    card: 'bg-[#3D121B]', 
-    text: 'text-[#FFE4E9]', 
-    textMuted: 'text-[#B07D87]', 
-    primary: 'bg-[#FF4D6D] hover:bg-[#FF758F]', 
-    primaryText: 'text-[#FF758F]', 
-    secondary: 'bg-[#591C28] text-[#FFB3C1]', 
-    border: 'border-[#4D1923]', 
-    icon: '💖' 
+  lele: {
+    id: "lele",
+    name: "Lele",
+    bg: "bg-[#1E090D]",
+    card: "bg-[#2D0F14]",
+    text: "text-[#FFF0F3]",
+    textMuted: "text-[#9D6B74]",
+    primary: "bg-[#FF4D6D] hover:bg-[#FF758F]",
+    primaryText: "text-[#FF758F]",
+    secondary: "bg-[#42111A] text-[#FFB3C1]",
+    border: "border-[#4D1923]",
+    icon: "💖",
   },
-  ny: { 
-    id: 'ny', 
-    name: 'Ny', 
-    bg: 'bg-[#F0F7FF]', 
-    card: 'bg-white', 
-    text: 'text-[#2D3A4A]', 
-    textMuted: 'text-[#8A9EB1]', 
-    primary: 'bg-[#4D96FF] hover:bg-[#3D85EF]', 
-    primaryText: 'text-[#3D85EF]', 
-    secondary: 'bg-[#E1EFFF] text-[#3D85EF]', 
-    border: 'border-[#E1EFFF]', 
-    icon: '🚀' 
+  ny: {
+    id: "ny",
+    name: "Ny",
+    bg: "bg-[#F8FBFF]",
+    card: "bg-white",
+    text: "text-[#334155]",
+    textMuted: "text-[#94A3B8]",
+    primary: "bg-[#60A5FA] hover:bg-[#3B82F6]",
+    primaryText: "text-[#3B82F6]",
+    secondary: "bg-[#EFF6FF] text-[#3B82F6]",
+    border: "border-[#F1F5F9]",
+    icon: "🚀",
   },
-  dx: { 
-    id: 'dx', 
-    name: 'DX', 
-    bg: 'bg-[#0F172A]', 
-    card: 'bg-[#1E293B]', 
-    text: 'text-[#F1F5F9]', 
-    textMuted: 'text-[#94A3B8]', 
-    primary: 'bg-[#38BDF8] hover:bg-[#0EA5E9]', 
-    primaryText: 'text-[#38BDF8]', 
-    secondary: 'bg-[#334155] text-[#7DD3FC]', 
-    border: 'border-[#334155]', 
-    icon: '🌌' 
+  dx: {
+    id: "dx",
+    name: "DX",
+    bg: "bg-[#0B0F1A]",
+    card: "bg-[#161B2E]",
+    text: "text-[#E2E8F0]",
+    textMuted: "text-[#64748B]",
+    primary: "bg-[#38BDF8] hover:bg-[#0EA5E9]",
+    primaryText: "text-[#38BDF8]",
+    secondary: "bg-[#1E293B] text-[#7DD3FC]",
+    border: "border-[#1E293B]",
+    icon: "🌌",
   },
-  parent: { 
-    id: 'parent', 
-    name: 'Parent Hub', 
-    bg: 'bg-[#F0FDF4]', 
-    card: 'bg-white', 
-    text: 'text-[#166534]', 
-    textMuted: 'text-[#86A691]', 
-    primary: 'bg-[#22C55E] hover:bg-[#16A34A]', 
-    primaryText: 'text-[#16A34A]', 
-    secondary: 'bg-[#DCFCE7] text-[#16A34A]', 
-    border: 'border-[#DCFCE7]', 
-    icon: '👨‍👩‍👧‍👦' 
-  }
+  parent: {
+    id: "parent",
+    name: "Parent Hub",
+    bg: "bg-[#F9FDFB]",
+    card: "bg-white",
+    text: "text-[#1E2923]",
+    textMuted: "text-[#718076]",
+    primary: "bg-[#4ADE80] hover:bg-[#22C55E]",
+    primaryText: "text-[#22C55E]",
+    secondary: "bg-[#F0FDF4] text-[#16A34A]",
+    border: "border-[#ECFDF5]",
+    icon: "👨‍👩‍👧‍👦",
+  },
 };
 
 // --- GEMINI API HELPER ---
@@ -302,6 +302,44 @@ export default function App() {
   const [view, setView] = useState("auth"); // auth, dashboard, list, add, detail
   const [selectedBook, setSelectedBook] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // --- HISTORY MANAGEMENT ---
+  useEffect(() => {
+    const handlePopState = (event) => {
+      if (event.state) {
+        if (event.state.view) setView(event.state.view);
+        if (event.state.selectedBook) setSelectedBook(event.state.selectedBook);
+        if (event.state.listTab) setListTab(event.state.listTab);
+      } else if (appUser) {
+        if (appUser.role === 'parent') setView('dashboard');
+        else setView('list');
+        setSelectedBook(null);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    
+    if (view !== 'auth') {
+      window.history.replaceState({ view, selectedBook, listTab }, '');
+    }
+
+    return () => window.removeEventListener('popstate', handlePopState);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appUser]);
+
+  useEffect(() => {
+    if (view === 'auth') return;
+    
+    const currentState = { view, selectedBook, listTab };
+    const historyState = window.history.state;
+    
+    if (!historyState || 
+        historyState.view !== view || 
+        historyState.selectedBook?.id !== selectedBook?.id || 
+        historyState.listTab !== listTab) {
+      window.history.pushState(currentState, '');
+    }
+  }, [view, selectedBook, listTab]);
 
   const handleEmailLogin = (email) => {
     const emailKey = email.toLowerCase();
@@ -636,7 +674,7 @@ function LoginScreen({ onGoogleLogin }) {
   );
 }
 
-function Header({ theme, username, onLogout, showBack, onBack, tab, setTab }) {
+function Header({ theme, username, onLogout, tab, setTab }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
@@ -644,14 +682,6 @@ function Header({ theme, username, onLogout, showBack, onBack, tab, setTab }) {
       className={`relative px-4 py-2 flex justify-between items-center ${theme.card} shadow-sm rounded-b-2xl z-20 sticky top-0 min-h-[72px]`}
     >
       <div className="flex items-center shrink-0 min-w-0 z-10">
-        {showBack && (
-          <button
-            onClick={onBack}
-            className={`p-2 -ml-2 mr-2 rounded-full transition bg-white/50 backdrop-blur-sm ${theme.secondary} ${theme.textMuted}`}
-          >
-            <ChevronLeft size={24} />
-          </button>
-        )}
         <img
           src="/assets/bookmory_logo.png"
           alt="Bookmory Logo"
@@ -1415,8 +1445,7 @@ function BookDetail({ book, userEmail, kidName, isParent, theme, onBack, onEdit,
 
   return (
     <div className="space-y-6 pb-24 animate-in fade-in slide-in-from-right-4">
-      <div className="flex items-center justify-between">
-        <button onClick={onBack} className="p-2 bg-white rounded-full shadow-sm text-gray-500 shrink-0"><ChevronLeft size={24} /></button>
+      <div className="flex items-center justify-end">
         {isParent && (
           <div className="flex space-x-2">
             <button onClick={onEdit} className="p-2 bg-white rounded-full shadow-sm text-gray-400 hover:text-blue-500 transition"><Edit3 size={20} /></button>
@@ -1506,35 +1535,6 @@ function BookDetail({ book, userEmail, kidName, isParent, theme, onBack, onEdit,
             </div>
           </div>
 
-          {/* Personal Checklist (only if reading) */}
-          {progress && (progress.toc || []).length > 0 && (
-            <div className={`${theme.card} p-6 rounded-[2rem] shadow-sm border ${theme.border}`}>
-              <div className="flex justify-between items-center mb-4">
-                 <h3 className="font-bold text-gray-800">My Checklist</h3>
-                 <span className="text-[10px] font-bold text-pink-500 bg-pink-50 px-2 py-1 rounded-lg">
-                   {progress.toc.filter(c => c.completed).length} / {progress.toc.length}
-                 </span>
-              </div>
-              <div className="space-y-3">
-                {progress.toc.map((item, idx) => (
-                  <div 
-                    key={idx} 
-                    onClick={() => toggleChapter(idx)}
-                    className={`flex items-center space-x-3 p-3 rounded-2xl cursor-pointer transition ${item.completed ? 'bg-green-50 opacity-60' : theme.bg}`}
-                  >
-                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center ${item.completed ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300'}`}>
-                       {item.completed && <Check size={14} strokeWidth={4} />}
-                    </div>
-                    <div className="flex-1">
-                      <p className={`text-sm font-bold ${item.completed ? 'text-green-700 line-through' : theme.text}`}>{item.title}</p>
-                      {item.page && <p className="text-[10px] text-gray-400">Starts at page {item.page}</p>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           <div className="flex justify-center items-center mb-6 space-x-2">
             <div className={`flex p-1 rounded-full w-max ${theme.secondary}`}>
               <button onClick={() => setActiveTab('progress')} className={`px-6 py-2 rounded-full font-bold text-sm transition ${activeTab === 'progress' ? `${theme.card} shadow-sm ${theme.text}` : theme.textMuted}`}>Chapters</button>
@@ -1549,13 +1549,26 @@ function BookDetail({ book, userEmail, kidName, isParent, theme, onBack, onEdit,
 
           {activeTab === 'progress' ? (
             <div className="space-y-3">
-              {localBook.toc?.map((chapter) => (
-                <div key={chapter.id} className={`${theme.card} p-4 rounded-2xl shadow-sm border ${theme.border} flex items-center space-x-4 transition ${chapter.completed ? 'opacity-70' : ''}`}>
-                  <button onClick={() => toggleChapter(localBook.toc.indexOf(chapter))} className={`w-8 h-8 rounded-full flex items-center justify-center border-2 shrink-0 transition ${chapter.completed ? `${theme.primary} border-transparent text-white` : `border-gray-300 text-transparent hover:border-gray-400`}`}>
+              <div className="flex justify-between items-center mb-2 px-2">
+                 <h3 className={`font-bold text-[10px] uppercase ${theme.textMuted}`}>Reading Checklist</h3>
+                 {progress?.toc?.length > 0 && (
+                   <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${theme.secondary}`}>
+                     {progress.toc.filter(c => c.completed).length} / {progress.toc.length}
+                   </span>
+                 )}
+              </div>
+              {(localBook.progress?.toc || localBook.toc || []).map((chapter, idx) => (
+                <div key={chapter.id || idx} className={`${theme.card} p-4 rounded-2xl shadow-sm border ${theme.border} flex items-center space-x-4 transition ${chapter.completed ? 'opacity-70' : ''}`}>
+                  <button 
+                    onClick={() => toggleChapter(idx)} 
+                    className={`w-8 h-8 rounded-full flex items-center justify-center border-2 shrink-0 transition ${chapter.completed ? `${theme.primary} border-transparent text-white` : `border-gray-300 text-transparent hover:border-gray-400`}`}
+                  >
                     <CheckCircle size={20} className={chapter.completed ? 'block' : 'hidden'} />
+                    {!chapter.completed && <div className="w-2 h-2 rounded-full bg-gray-200" />}
                   </button>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0" onClick={() => toggleChapter(idx)}>
                     <h4 className={`font-bold truncate ${chapter.completed ? `line-through ${theme.textMuted}` : theme.text}`}>{chapter.title}</h4>
+                    {chapter.page && <p className="text-[10px] text-gray-400">Page {chapter.page}</p>}
                   </div>
                   <button onClick={() => { setActiveChapterForNote(chapter); setShowNoteModal(true); }} className={`p-2 rounded-full transition ${chapter.notes?.length > 0 ? theme.secondary : `hover:${theme.secondary} ${theme.textMuted}`}`}><Edit3 size={18} /></button>
                 </div>
@@ -1563,7 +1576,7 @@ function BookDetail({ book, userEmail, kidName, isParent, theme, onBack, onEdit,
             </div>
           ) : (
             <div className="space-y-4">
-              {localBook.toc?.flatMap(ch => ch.notes?.map(n => ({...n, chTitle: ch.title})) || []).map((note, i) => (
+              {(localBook.progress?.toc || localBook.toc || []).flatMap(ch => ch.notes?.map(n => ({...n, chTitle: ch.title})) || []).map((note, i) => (
                 <div key={i} className={`${theme.card} p-4 rounded-2xl shadow-sm border ${theme.border}`}>
                   <div className={`text-xs font-bold mb-2 ${theme.textMuted}`}>{note.chTitle}</div>
                   <p className={`whitespace-pre-wrap text-sm font-medium ${theme.text}`}>{note.text}</p>
@@ -1576,8 +1589,22 @@ function BookDetail({ book, userEmail, kidName, isParent, theme, onBack, onEdit,
 
       {showNoteModal && (
         <NoteModal chapter={activeChapterForNote} theme={theme} onClose={() => setShowNoteModal(false)} onSave={(noteText) => {
-          const updatedToc = localBook.toc.map(ch => ch.id === activeChapterForNote.id ? { ...ch, notes: [...(ch.notes || []), { text: noteText, date: Date.now() }] } : ch);
-          saveUpdates({ ...localBook, toc: updatedToc });
+          const newNote = { text: noteText, date: Date.now() };
+          if (localBook.progress) {
+            const updatedToc = (localBook.progress.toc || []).map(ch => 
+              (ch.id === activeChapterForNote.id || ch.title === activeChapterForNote.title) 
+                ? { ...ch, notes: [newNote] } 
+                : ch
+            );
+            saveProgress({ ...localBook.progress, toc: updatedToc });
+          } else {
+            const updatedToc = (localBook.toc || []).map(ch => 
+              ch.id === activeChapterForNote.id 
+                ? { ...ch, notes: [newNote] } 
+                : ch
+            );
+            saveUpdates({ ...localBook, toc: updatedToc });
+          }
           setShowNoteModal(false);
         }}/>
       )}
@@ -1607,7 +1634,10 @@ function BookDetail({ book, userEmail, kidName, isParent, theme, onBack, onEdit,
             
             // Auto-complete ToC items based on page number
             const updatedToc = (progress.toc || []).map(item => {
-              const itemPage = parseInt(item.page);
+              // Extract the first number found in the page string (e.g., "Page 10" -> 10)
+              const pageMatch = String(item.page || "").match(/\d+/);
+              const itemPage = pageMatch ? parseInt(pageMatch[0]) : NaN;
+              
               if (!isNaN(itemPage) && itemPage > 0 && itemPage <= currentPage) {
                 return { ...item, completed: true };
               }
@@ -1721,7 +1751,7 @@ function CheckInModal({ progress, theme, onClose, onSave }) {
 }
 
 function NoteModal({ chapter, theme, onClose, onSave }) {
-  const [text, setText] = useState('');
+  const [text, setText] = useState((chapter.notes || []).map(n => n.text).join('\n\n'));
   const [isProcessingAI, setIsProcessingAI] = useState(false);
 
   const handleSmartCapture = async (e) => {
