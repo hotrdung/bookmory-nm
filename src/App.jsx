@@ -1,5 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { Book, Camera, Check, CheckCircle, Edit3, Sparkles, LogOut, Plus, Trash2, ChevronLeft, BookOpen, Users, Shield, Download, Upload, Settings } from 'lucide-react';
+import {
+  Book,
+  Camera,
+  Check,
+  CheckCircle,
+  Edit3,
+  Sparkles,
+  LogOut,
+  Plus,
+  Trash2,
+  ChevronLeft,
+  BookOpen,
+  Users,
+  Shield,
+  Download,
+  Upload,
+  Settings,
+  LayoutGrid,
+  List,
+  Search,
+  Filter,
+  ArrowUpDown,
+  Menu,
+  X,
+} from "lucide-react";
 import { initializeApp } from "firebase/app";
 import {
   getAuth,
@@ -45,11 +69,71 @@ const APP_CONFIG = {
 
 // --- THEMES ---
 const THEMES = {
-  mei: { id: 'mei', name: 'Mei', bg: 'bg-pink-50', card: 'bg-white', text: 'text-gray-800', textMuted: 'text-gray-500', primary: 'bg-pink-500 hover:bg-pink-600', primaryText: 'text-pink-600', secondary: 'bg-purple-100 text-purple-700', border: 'border-pink-200', icon: '🌸' },
-  lele: { id: 'lele', name: 'Lele', bg: 'bg-rose-950', card: 'bg-rose-900', text: 'text-rose-100', textMuted: 'text-rose-400', primary: 'bg-pink-600 hover:bg-pink-700', primaryText: 'text-pink-300', secondary: 'bg-rose-800 text-pink-200', border: 'border-rose-800', icon: '💖' },
-  ny: { id: 'ny', name: 'Ny', bg: 'bg-blue-50', card: 'bg-white', text: 'text-gray-800', textMuted: 'text-gray-500', primary: 'bg-blue-500 hover:bg-blue-600', primaryText: 'text-blue-600', secondary: 'bg-cyan-100 text-cyan-700', border: 'border-blue-200', icon: '🚀' },
-  dx: { id: 'dx', name: 'DX', bg: 'bg-slate-950', card: 'bg-slate-900', text: 'text-slate-100', textMuted: 'text-slate-400', primary: 'bg-blue-600 hover:bg-blue-700', primaryText: 'text-blue-400', secondary: 'bg-slate-800 text-blue-300', border: 'border-slate-800', icon: '🌌' },
-  parent: { id: 'parent', name: 'Parent Hub', bg: 'bg-emerald-50', card: 'bg-white', text: 'text-gray-800', textMuted: 'text-gray-500', primary: 'bg-emerald-500 hover:bg-emerald-600', primaryText: 'text-emerald-600', secondary: 'bg-teal-100 text-teal-700', border: 'border-emerald-200', icon: '👨‍👩‍👧‍👦' }
+  mei: { 
+    id: 'mei', 
+    name: 'Mei', 
+    bg: 'bg-[#FFF5F7]', 
+    card: 'bg-white', 
+    text: 'text-[#4A3B3F]', 
+    textMuted: 'text-[#A08E94]', 
+    primary: 'bg-[#FF85A1] hover:bg-[#FF6B8B]', 
+    primaryText: 'text-[#FF6B8B]', 
+    secondary: 'bg-[#FFE0E6] text-[#FF6B8B]', 
+    border: 'border-[#FFE0E6]', 
+    icon: '🌸' 
+  },
+  lele: { 
+    id: 'lele', 
+    name: 'Lele', 
+    bg: 'bg-[#2D0A12]', 
+    card: 'bg-[#3D121B]', 
+    text: 'text-[#FFE4E9]', 
+    textMuted: 'text-[#B07D87]', 
+    primary: 'bg-[#FF4D6D] hover:bg-[#FF758F]', 
+    primaryText: 'text-[#FF758F]', 
+    secondary: 'bg-[#591C28] text-[#FFB3C1]', 
+    border: 'border-[#4D1923]', 
+    icon: '💖' 
+  },
+  ny: { 
+    id: 'ny', 
+    name: 'Ny', 
+    bg: 'bg-[#F0F7FF]', 
+    card: 'bg-white', 
+    text: 'text-[#2D3A4A]', 
+    textMuted: 'text-[#8A9EB1]', 
+    primary: 'bg-[#4D96FF] hover:bg-[#3D85EF]', 
+    primaryText: 'text-[#3D85EF]', 
+    secondary: 'bg-[#E1EFFF] text-[#3D85EF]', 
+    border: 'border-[#E1EFFF]', 
+    icon: '🚀' 
+  },
+  dx: { 
+    id: 'dx', 
+    name: 'DX', 
+    bg: 'bg-[#0F172A]', 
+    card: 'bg-[#1E293B]', 
+    text: 'text-[#F1F5F9]', 
+    textMuted: 'text-[#94A3B8]', 
+    primary: 'bg-[#38BDF8] hover:bg-[#0EA5E9]', 
+    primaryText: 'text-[#38BDF8]', 
+    secondary: 'bg-[#334155] text-[#7DD3FC]', 
+    border: 'border-[#334155]', 
+    icon: '🌌' 
+  },
+  parent: { 
+    id: 'parent', 
+    name: 'Parent Hub', 
+    bg: 'bg-[#F0FDF4]', 
+    card: 'bg-white', 
+    text: 'text-[#166534]', 
+    textMuted: 'text-[#86A691]', 
+    primary: 'bg-[#22C55E] hover:bg-[#16A34A]', 
+    primaryText: 'text-[#16A34A]', 
+    secondary: 'bg-[#DCFCE7] text-[#16A34A]', 
+    border: 'border-[#DCFCE7]', 
+    icon: '👨‍👩‍👧‍👦' 
+  }
 };
 
 // --- GEMINI API HELPER ---
@@ -431,13 +515,15 @@ export default function App() {
             onLogout={handleLogout}
             showBack={appUser.role === "parent" && view !== "dashboard"}
             onBack={() => setView("dashboard")}
+            tab={view === "list" ? listTab : null}
+            setTab={setListTab}
           />
 
           <main className="flex-1 p-4 overflow-y-auto">
             {view === "dashboard" && (
-              <ParentDashboard 
-                config={APP_CONFIG} 
-                themes={THEMES} 
+              <ParentDashboard
+                config={APP_CONFIG}
+                themes={THEMES}
                 onSelectKid={(email) => {
                   setActiveKidEmail(email);
                   setListTab("my");
@@ -462,26 +548,26 @@ export default function App() {
               />
             )}
             {view === "add" && (
-              <AddBook 
-                theme={currentTheme} 
-                ownerEmail={firebaseUser.email} 
-                onBack={() => setView("list")} 
+              <AddBook
+                theme={currentTheme}
+                ownerEmail={firebaseUser.email}
+                onBack={() => setView("list")}
               />
             )}
             {view === "edit" && (
-              <AddBook 
-                theme={currentTheme} 
-                ownerEmail={firebaseUser.email} 
+              <AddBook
+                theme={currentTheme}
+                ownerEmail={firebaseUser.email}
                 bookToEdit={selectedBook}
-                onBack={() => setView("detail")} 
+                onBack={() => setView("detail")}
               />
             )}
             {view === "detail" && (
-              <BookDetail 
-                book={selectedBook} 
-                userEmail={activeKidEmail || firebaseUser.email} 
-                isParent={appUser?.role === 'parent'}
-                theme={currentTheme} 
+              <BookDetail
+                book={selectedBook}
+                userEmail={activeKidEmail || firebaseUser.email}
+                isParent={appUser?.role === "parent"}
+                theme={currentTheme}
                 onBack={() => setView("list")}
                 onEdit={() => setView("edit")}
                 onDelete={() => handleDeleteBook(selectedBook.id)}
@@ -516,18 +602,104 @@ function LoginScreen({ onGoogleLogin }) {
   );
 }
 
-function Header({ theme, title, onLogout, showBack, onBack }) {
+function Header({ theme, title, onLogout, showBack, onBack, tab, setTab }) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   return (
-    <header className={`p-4 flex justify-between items-center ${theme.card} shadow-sm rounded-b-3xl z-10 sticky top-0`}>
-      <div className="flex items-center space-x-2">
+    <header
+      className={`px-4 py-2 flex justify-between items-center ${theme.card} shadow-sm rounded-b-2xl z-20 sticky top-0`}
+    >
+      <div className="flex items-center space-x-2 shrink-0">
         {showBack ? (
-          <button onClick={onBack} className={`p-2 mr-1 rounded-full transition ${theme.secondary} ${theme.textMuted}`}><ChevronLeft size={20}/></button>
+          <button
+            onClick={onBack}
+            className={`p-2 -ml-2 rounded-full transition ${theme.secondary} ${theme.textMuted}`}
+          >
+            <ChevronLeft size={20} />
+          </button>
         ) : (
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl ${theme.bg}`}>{theme.icon}</div>
+          <div
+            className={`w-8 h-8 rounded-full flex items-center justify-center text-lg ${theme.bg}`}
+          >
+            {theme.icon}
+          </div>
         )}
-        <h1 className={`text-xl font-bold ${theme.primaryText}`}>{title}</h1>
+        <h1
+          className={`text-base font-bold truncate max-w-[160px] ${theme.primaryText}`}
+        >
+          {title}
+        </h1>
       </div>
-      <button onClick={onLogout} className={`p-2 rounded-full transition ${theme.secondary} ${theme.textMuted}`}><LogOut size={18} /></button>
+
+      <div className="flex items-center">
+        {tab ? (
+          <div className="relative">
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className={`p-2 rounded-xl transition ${theme.secondary} ${theme.textMuted} flex items-center space-x-1`}
+            >
+              <span className="text-[10px] font-black uppercase tracking-wider ml-1">
+                {tab === "my" ? "My" : "Library"}
+              </span>
+              {isMenuOpen ? <X size={18} /> : <Menu size={18} />}
+            </button>
+
+            {isMenuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setIsMenuOpen(false)}
+                />
+                <div
+                  className={`absolute right-0 mt-2 w-48 rounded-2xl shadow-2xl border ${theme.border} ${theme.card} overflow-hidden z-20 animate-in fade-in zoom-in-95 duration-100`}
+                >
+                  <div className="p-2 border-b border-gray-50 bg-gray-50/50 text-[10px] font-black text-gray-400 uppercase tracking-widest px-4 py-2">
+                    Switch View
+                  </div>
+                  <button
+                    onClick={() => {
+                      setTab("my");
+                      setIsMenuOpen(false);
+                    }}
+                    className={`w-full text-left px-4 py-3 text-sm font-bold transition ${tab === "my" ? `${theme.primary} text-white` : `${theme.text} hover:bg-gray-100`}`}
+                  >
+                    My Books
+                  </button>
+                  <button
+                    onClick={() => {
+                      setTab("library");
+                      setIsMenuOpen(false);
+                    }}
+                    className={`w-full text-left px-4 py-3 text-sm font-bold transition ${tab === "library" ? `${theme.primary} text-white` : `${theme.text} hover:bg-gray-100`}`}
+                  >
+                    Family Library
+                  </button>
+                  <div className="border-t border-gray-100 mt-1" />
+                  <button
+                    onClick={() => {
+                      onLogout();
+                      setIsMenuOpen(false);
+                    }}
+                    className={`w-full text-left px-4 py-4 text-sm font-bold text-red-500 transition hover:bg-red-50`}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <LogOut size={16} />
+                      <span>Logout</span>
+                    </div>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+          <button
+            onClick={onLogout}
+            className={`p-2 rounded-xl transition ${theme.secondary} ${theme.textMuted}`}
+          >
+            <LogOut size={18} />
+          </button>
+        )}
+      </div>
     </header>
   );
 }
@@ -584,60 +756,263 @@ function ParentDashboard({ config, themes, onSelectKid, onExport, onImport, onCl
 }
 
 function BookList({ books, tab, setTab, theme, onAdd, onSelect }) {
+  const [viewMode, setViewMode] = useState('grid');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('updated');
+  const [selectedTags, setSelectedTags] = useState([]);
+
+  const allTags = Array.from(new Set(books.flatMap(b => b.tags || []))).sort();
+
+  const getPercent = (book) => {
+    if (!book.progress) return 0;
+    const totalLogged = Object.values(book.progress.logs || {}).reduce((sum, log) => sum + (log.pagesRead || 0), 0);
+    return Math.min(100, Math.round((totalLogged / (book.progress.totalPages || 1)) * 100));
+  };
+
+  const filteredBooks = books
+    .filter(book => {
+      const matchesSearch = 
+        book.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        book.author?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesTags = 
+        selectedTags.length === 0 || 
+        selectedTags.some(tag => book.tags?.includes(tag));
+      return matchesSearch && matchesTags;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'updated') return (b.updatedAt || 0) - (a.updatedAt || 0);
+      if (sortBy === 'added') return (b.createdAt || 0) - (a.createdAt || 0);
+      if (sortBy === 'progress') return getPercent(b) - getPercent(a);
+      return 0;
+    });
+
+  const toggleTag = (tag) => {
+    setSelectedTags(prev => 
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+    );
+  };
+
   return (
-    <div className="space-y-6">
-      <div className={`flex p-1 rounded-2xl w-full mb-4 ${theme.secondary}`}>
-        <button onClick={() => setTab('my')} className={`flex-1 py-3 rounded-xl font-bold text-sm transition ${tab === 'my' ? `${theme.card} shadow-sm ${theme.text}` : theme.textMuted}`}>My Books</button>
-        <button onClick={() => setTab('library')} className={`flex-1 py-3 rounded-xl font-bold text-sm transition ${tab === 'library' ? `${theme.card} shadow-sm ${theme.text}` : theme.textMuted}`}>Family Library</button>
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="space-y-3">
+        <div className="flex space-x-2">
+          <div className="relative flex-1">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              size={18}
+            />
+            <input
+              type="text"
+              placeholder="Search title or author..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={`w-full pl-10 pr-4 py-3 rounded-2xl border-none focus:ring-2 focus:ring-opacity-50 transition ${theme.card} ${theme.text} shadow-sm`}
+            />
+          </div>
+          <button
+            onClick={() =>
+              setViewMode((prev) => (prev === "grid" ? "list" : "grid"))
+            }
+            className={`p-3 rounded-2xl transition shadow-sm ${theme.card} ${theme.textMuted} hover:${theme.text}`}
+          >
+            {viewMode === "grid" ? (
+              <List size={20} />
+            ) : (
+              <LayoutGrid size={20} />
+            )}
+          </button>
+        </div>
+
+        <div className="flex items-center space-x-2 overflow-x-auto pb-1 no-scrollbar">
+          <div
+            className={`flex items-center space-x-1 px-3 py-2 rounded-xl text-xs font-bold shrink-0 ${theme.secondary}`}
+          >
+            <ArrowUpDown size={14} />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="bg-transparent border-none focus:ring-0 p-0 text-inherit font-bold"
+            >
+              <option value="updated">Updated</option>
+              <option value="added">Added</option>
+              <option value="progress">Progress</option>
+            </select>
+          </div>
+
+          <div className="h-6 w-px bg-gray-200 shrink-0" />
+
+          {allTags.map((tag) => (
+            <button
+              key={tag}
+              onClick={() => toggleTag(tag)}
+              className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition ${
+                selectedTags.includes(tag)
+                  ? `${theme.primary} text-white shadow-md`
+                  : `${theme.card} ${theme.textMuted} border border-transparent shadow-sm`
+              }`}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {books.length === 0 ? (
+      {filteredBooks.length === 0 ? (
         <div className="text-center py-12 px-4">
           <div className="text-6xl mb-4 opacity-50">{theme.icon}</div>
-          <h2 className={`text-xl font-bold mb-2 ${theme.textMuted}`}>{tab === 'my' ? "You aren't reading anything yet!" : "Library is empty!"}</h2>
-          {tab === 'my' && (
-             <button onClick={() => setTab('library')} className={`mt-6 px-6 py-3 rounded-full text-white font-bold shadow-lg flex items-center justify-center mx-auto space-x-2 ${theme.primary}`}>
-               <BookOpen size={20} /> <span>Browse Library</span>
-             </button>
+          <h2 className={`text-xl font-bold mb-2 ${theme.textMuted}`}>
+            {books.length === 0
+              ? tab === "my"
+                ? "You aren't reading anything yet!"
+                : "Library is empty!"
+              : "No books match your filters!"}
+          </h2>
+          {books.length === 0 && tab === "my" && (
+            <button
+              onClick={() => setTab("library")}
+              className={`mt-6 px-6 py-3 rounded-full text-white font-bold shadow-lg flex items-center justify-center mx-auto space-x-2 ${theme.primary}`}
+            >
+              <BookOpen size={20} /> <span>Browse Library</span>
+            </button>
           )}
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-4">
-            {books.map(book => {
-              let percent = 0;
-              if (tab === 'my' && book.progress) {
-                const totalLogged = Object.values(book.progress.logs || {}).reduce((sum, log) => sum + (log.pagesRead || 0), 0);
-                percent = Math.min(100, Math.round((totalLogged / (book.progress.totalPages || 1)) * 100));
+          <div
+            className={
+              viewMode === "grid" ? "grid grid-cols-2 gap-4" : "space-y-3"
+            }
+          >
+            {filteredBooks.map((book) => {
+              const percent = getPercent(book);
+
+              if (viewMode === "list") {
+                return (
+                  <div
+                    key={book.id}
+                    onClick={() => onSelect(book)}
+                    className={`${theme.card} rounded-2xl p-3 shadow-sm border ${theme.border} cursor-pointer hover:shadow-md transition flex items-center space-x-4`}
+                  >
+                    <div className="w-12 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 shadow-inner flex items-center justify-center">
+                      {book.coverUrl ? (
+                        <img
+                          src={book.coverUrl}
+                          alt="cover"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <BookOpen size={20} className="text-gray-300" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0 text-left">
+                      <h3
+                        className={`font-bold line-clamp-1 text-sm ${theme.text}`}
+                      >
+                        {book.title || "Untitled Book"}
+                      </h3>
+                      <p
+                        className={`text-[11px] line-clamp-1 ${theme.textMuted}`}
+                      >
+                        by {book.author || "Unknown Author"}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      {book.progress ? (
+                        <div className="flex flex-col items-end">
+                          <span
+                            className={`text-xs font-black ${theme.primaryText}`}
+                          >
+                            {percent}%
+                          </span>
+                          <div
+                            className={`w-12 bg-gray-100 rounded-full h-1 mt-1 overflow-hidden`}
+                          >
+                            <div
+                              className={`${theme.primary} h-full rounded-full transition-all`}
+                              style={{ width: `${percent}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          className={`px-3 py-1.5 rounded-full text-[10px] font-black text-white shadow-sm ${theme.primary}`}
+                        >
+                          READ
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
               }
 
               return (
-                <div key={book.id} onClick={() => onSelect(book)} className={`${theme.card} rounded-3xl p-4 shadow-sm border ${theme.border} cursor-pointer hover:shadow-md transition transform hover:-translate-y-1`}>
-                  <div className="aspect-[3/4] bg-gray-100 rounded-2xl mb-3 overflow-hidden relative shadow-inner flex items-center justify-center">
-                    {book.coverUrl ? <img src={book.coverUrl} alt="cover" className="w-full h-full object-cover" /> : <BookOpen size={40} className="text-gray-300" />}
-                    {tab === 'library' && (
-                       <div className="absolute top-2 right-2 bg-white/90 px-2 py-1 rounded-full text-[10px] font-bold shadow-sm">
-                         By {APP_CONFIG.allowedUsers[book.ownerEmail.toLowerCase()]?.name || '??'}
-                       </div>
+                <div
+                  key={book.id}
+                  onClick={() => onSelect(book)}
+                  className={`${theme.card} rounded-3xl p-4 shadow-sm border ${theme.border} cursor-pointer hover:shadow-md transition transform hover:-translate-y-1 flex flex-col h-full`}
+                >
+                  <div className="aspect-[3/4] bg-gray-100 rounded-2xl mb-3 overflow-hidden relative shadow-inner flex items-center justify-center shrink-0">
+                    {book.coverUrl ? (
+                      <img
+                        src={book.coverUrl}
+                        alt="cover"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <BookOpen size={40} className="text-gray-300" />
+                    )}
+                    {tab === "library" && (
+                      <div className="absolute top-2 right-2 bg-white/90 px-2 py-1 rounded-full text-[10px] font-bold shadow-sm">
+                        By{" "}
+                        {APP_CONFIG.allowedUsers[book.ownerEmail.toLowerCase()]
+                          ?.name || "??"}
+                      </div>
                     )}
                   </div>
-                  <h3 className={`font-bold line-clamp-1 text-sm ${theme.text}`}>{book.title || 'Untitled Book'}</h3>
-                  <p className={`text-xs mb-2 line-clamp-1 ${theme.textMuted}`}>{book.author || 'Unknown Author'}</p>
-                  
-                  {tab === 'my' && (
-                    <>
-                      <div className="w-full bg-gray-100 rounded-full h-2 mt-auto">
-                        <div className={`${theme.primary} h-2 rounded-full transition-all`} style={{ width: `${percent}%` }}></div>
+                  <h3
+                    className={`font-bold line-clamp-1 text-sm ${theme.text}`}
+                  >
+                    {book.title || "Untitled Book"}
+                  </h3>
+                  <p className={`text-xs mb-2 line-clamp-1 ${theme.textMuted}`}>
+                    {book.author || "Unknown Author"}
+                  </p>
+
+                  <div className="mt-auto pt-2">
+                    {book.progress ? (
+                      <>
+                        <div className="w-full bg-gray-100 rounded-full h-2">
+                          <div
+                            className={`${theme.primary} h-2 rounded-full transition-all`}
+                            style={{ width: `${percent}%` }}
+                          ></div>
+                        </div>
+                        <div className="text-[10px] text-right mt-1 text-gray-400 font-bold">
+                          {percent}%
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex justify-center">
+                        <span
+                          className={`text-[10px] font-bold px-3 py-1 rounded-full ${theme.secondary} opacity-60`}
+                        >
+                          Not Started
+                        </span>
                       </div>
-                      <div className="text-[10px] text-right mt-1 text-gray-400 font-bold">{percent}%</div>
-                    </>
-                  )}
+                    )}
+                  </div>
                 </div>
               );
             })}
           </div>
-          {tab === 'my' && (
-            <button onClick={onAdd} className={`fixed bottom-6 right-6 w-14 h-14 rounded-full text-white shadow-xl flex items-center justify-center transition-transform hover:scale-105 active:scale-95 ${theme.primary}`}><Plus size={28} /></button>
+          {tab === "my" && (
+            <button
+              onClick={onAdd}
+              className={`fixed bottom-6 right-6 w-14 h-14 rounded-full text-white shadow-xl flex items-center justify-center transition-transform hover:scale-105 active:scale-95 ${theme.primary}`}
+            >
+              <Plus size={28} />
+            </button>
           )}
         </>
       )}
@@ -1164,6 +1539,28 @@ function BookDetail({ book, userEmail, isParent, theme, onBack, onEdit, onDelete
             setShowCheckIn(false);
           }}
         />
+      )}
+      {progress && (
+        <button
+          onClick={async () => {
+            if (
+              !confirm(
+                "Are you sure you want to stop reading this book and remove it from your list? Your progress will be deleted."
+              )
+            )
+              return;
+            try {
+              await deleteDoc(doc(db, "reading_progress", progress.id));
+              onBack();
+            } catch (err) {
+              console.error(err);
+              alert("Failed to stop reading.");
+            }
+          }}
+          className="w-full py-4 rounded-2xl font-bold text-red-500 bg-red-50 hover:bg-red-100 transition-colors mt-4"
+        >
+          Stop Reading & Remove from My Books
+        </button>
       )}
     </div>
   );
