@@ -664,7 +664,7 @@ function Header({ theme, username, onLogout, showBack, onBack, tab, setTab }) {
           <span
             className={`text-[14px] font-black uppercase tracking-[0.2em] opacity-80 ${theme.textMuted}`}
           >
-            {tab === "my" ? "My Books" : "Family Library"}
+            {tab === "my" ? "My Books" : "Family"}
           </span>
         </div>
       )}
