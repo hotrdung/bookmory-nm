@@ -553,10 +553,43 @@ export default function App() {
               (appUser.role === "parent" ? "Parent" : "Guest")
             }
             onLogout={handleLogout}
-            showBack={appUser.role === "parent" && view !== "dashboard"}
-            onBack={() => setView("dashboard")}
+            showBack={
+              view !== "dashboard" &&
+              view !== "list" &&
+              (appUser.role === "parent" ||
+                view === "detail" ||
+                view === "add" ||
+                view === "edit")
+            }
+            onBack={() => {
+              if (appUser.role === "parent" && view === "list")
+                setView("dashboard");
+              else if (view === "detail") setView("list");
+              else if (view === "add") setView("list");
+              else if (view === "edit") setView("detail");
+              else if (appUser.role === "parent") setView("dashboard");
+            }}
             tab={view === "list" ? listTab : null}
             setTab={setListTab}
+            title={
+              view === "list"
+                ? listTab === "my"
+                  ? "My Books"
+                  : "Family Library"
+                : view === "detail"
+                  ? userProgressList.some(
+                      (p) =>
+                        p.bookId === selectedBook?.id &&
+                        p.userEmail === activeKidEmail,
+                    )
+                    ? "Reading Progress"
+                    : "Book Details"
+                  : view === "add"
+                    ? "ADD BOOK"
+                    : view === "edit"
+                      ? "EDIT BOOK"
+                      : null
+            }
           />
 
           <main className="flex-1 p-4 overflow-y-auto">
@@ -674,7 +707,16 @@ function LoginScreen({ onGoogleLogin }) {
   );
 }
 
-function Header({ theme, username, onLogout, tab, setTab }) {
+function Header({
+  theme,
+  username,
+  onLogout,
+  tab,
+  setTab,
+  title,
+  showBack,
+  onBack,
+}) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
@@ -682,24 +724,29 @@ function Header({ theme, username, onLogout, tab, setTab }) {
       className={`relative px-4 py-2 flex justify-between items-center ${theme.card} shadow-sm rounded-b-2xl z-20 sticky top-0 min-h-[72px]`}
     >
       <div className="flex items-center shrink-0 min-w-0 z-10">
+        {showBack && (
+          <button
+            onClick={onBack}
+            className={`p-1 mr-1 rounded-xl transition ${theme.secondary} ${theme.text}`}
+          >
+            <ChevronLeft size={24} />
+          </button>
+        )}
         <img
           src="/assets/bookmory_logo.png"
           alt="Bookmory Logo"
-          className="h-10 w-auto drop-shadow-sm"
+          className="h-11 w-auto drop-shadow-sm"
         />
       </div>
 
-      {tab && (
-        <div className="absolute left-14 top-2 inset-0 flex items-center justify-center pointer-events-none">
+      <div className="flex items-center z-10 space-x-4">
+        {title && (
           <span
             className={`text-[14px] font-black uppercase tracking-[0.2em] opacity-80 ${theme.textMuted}`}
           >
-            {tab === "my" ? "My Books" : "Family"}
+            {title}
           </span>
-        </div>
-      )}
-
-      <div className="flex items-center z-10">
+        )}
         {tab ? (
           <div className="relative">
             <button
@@ -707,7 +754,7 @@ function Header({ theme, username, onLogout, tab, setTab }) {
               className={`p-2 rounded-xl transition ${theme.secondary} ${theme.textMuted} flex items-center space-x-2`}
             >
               <div className="flex flex-col items-end mr-1">
-                <span className="text-[14px] font-black uppercase tracking-wider">
+                <span className="text-[14px] font-black uppercase tracking-wider pl-1">
                   {username}
                 </span>
               </div>
@@ -1448,175 +1495,365 @@ function BookDetail({ book, userEmail, kidName, isParent, theme, onBack, onEdit,
       <div className="flex items-center justify-end">
         {isParent && (
           <div className="flex space-x-2">
-            <button onClick={onEdit} className="p-2 bg-white rounded-full shadow-sm text-gray-400 hover:text-blue-500 transition"><Edit3 size={20} /></button>
-            <button onClick={onDelete} className="p-2 bg-white rounded-full shadow-sm text-gray-400 hover:text-red-500 transition"><Trash2 size={20} /></button>
+            <button
+              onClick={onEdit}
+              className="p-2 bg-white rounded-full shadow-sm text-gray-400 hover:text-blue-500 transition"
+            >
+              <Edit3 size={20} />
+            </button>
+            <button
+              onClick={onDelete}
+              className="p-2 bg-white rounded-full shadow-sm text-gray-400 hover:text-red-500 transition"
+            >
+              <Trash2 size={20} />
+            </button>
           </div>
         )}
       </div>
 
       <div className="flex items-start space-x-4">
         <div className="w-24 shrink-0">
-          <img src={localBook.coverUrl || "https://placehold.co/150x220?text=No+Cover"} alt={localBook.title} className="w-full rounded-xl shadow-lg border-2 border-white" />
+          <img
+            src={
+              localBook.coverUrl || "https://placehold.co/150x220?text=No+Cover"
+            }
+            alt={localBook.title}
+            className="w-full rounded-xl shadow-lg border-2 border-white"
+          />
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className={`text-2xl font-black leading-tight mb-1 ${theme.text}`}>{localBook.title}</h2>
-          <p className={`font-bold ${theme.primaryText}`}>{localBook.author || 'Unknown Author'}</p>
+          <h2
+            className={`text-2xl font-black leading-tight mb-1 ${theme.text}`}
+          >
+            {localBook.title}
+          </h2>
+          <p className={`font-bold ${theme.primaryText}`}>
+            {localBook.author || "Unknown Author"}
+          </p>
         </div>
       </div>
 
       {!progress ? (
-        <div className={`${theme.card} p-8 rounded-[2rem] shadow-sm border ${theme.border} text-center`}>
+        <div
+          className={`${theme.card} p-8 rounded-[2rem] shadow-sm border ${theme.border} text-center`}
+        >
           <Sparkles className="mx-auto mb-4 text-yellow-400" size={40} />
           <h3 className="font-bold text-xl mb-2">Want to read this?</h3>
-          <p className={`text-sm mb-6 ${theme.textMuted}`}>Start tracking your reading progress and hit your daily goals!</p>
-          <button onClick={handleStartReading} className={`w-full py-4 rounded-2xl text-white font-bold text-lg shadow-lg ${theme.primary}`}>Start Reading</button>
+          <p className={`text-sm mb-6 ${theme.textMuted}`}>
+            Start tracking your reading progress and hit your daily goals!
+          </p>
+          <button
+            onClick={handleStartReading}
+            className={`w-full py-4 rounded-2xl text-white font-bold text-lg shadow-lg ${theme.primary}`}
+          >
+            Start Reading
+          </button>
         </div>
       ) : (
         <>
-          <div className={`${theme.card} p-6 rounded-[3rem] shadow-sm border ${theme.border} text-center relative overflow-hidden`}>
+          <div
+            className={`${theme.card} p-6 rounded-[3rem] shadow-sm border ${theme.border} text-center relative overflow-hidden`}
+          >
             <div className="flex justify-between items-center mb-6">
-               <h3 className={`font-bold uppercase tracking-wider text-[10px] ${theme.textMuted}`}>Progress Tracker</h3>
+              <h3
+                className={`font-bold uppercase tracking-wider text-[10px] ${theme.textMuted}`}
+              >
+                Progress Tracker
+              </h3>
             </div>
-            
+
             <div className="relative w-48 h-48 mx-auto mb-8 flex items-center justify-center">
-               <svg className="w-full h-full -rotate-90">
-                 <circle cx="96" cy="96" r="88" className="fill-none stroke-gray-100" strokeWidth="12" />
-                 <circle cx="96" cy="96" r="88" className={`fill-none ${theme.primaryText} stroke-current transition-all duration-1000`} strokeWidth="12" strokeDasharray={2 * Math.PI * 88} strokeDashoffset={2 * Math.PI * 88 * (1 - progressPercent/100)} strokeLinecap="round" />
-               </svg>
-               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <div className={`text-5xl font-black ${theme.primaryText}`}>{progressPercent}%</div>
-                  <div className={`text-[10px] font-bold uppercase tracking-widest ${theme.textMuted}`}>Completed</div>
-               </div>
-               <div className="absolute -right-2 top-1/2 -translate-y-1/2 text-3xl animate-bounce-slow">🐦</div>
+              <svg className="w-full h-full -rotate-90">
+                <circle
+                  cx="96"
+                  cy="96"
+                  r="88"
+                  className="fill-none stroke-gray-100"
+                  strokeWidth="12"
+                />
+                <circle
+                  cx="96"
+                  cy="96"
+                  r="88"
+                  className={`fill-none ${theme.primaryText} stroke-current transition-all duration-1000`}
+                  strokeWidth="12"
+                  strokeDasharray={2 * Math.PI * 88}
+                  strokeDashoffset={
+                    2 * Math.PI * 88 * (1 - progressPercent / 100)
+                  }
+                  strokeLinecap="round"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <div className={`text-5xl font-black ${theme.primaryText}`}>
+                  {progressPercent}%
+                </div>
+                <div
+                  className={`text-[10px] font-bold uppercase tracking-widest ${theme.textMuted}`}
+                >
+                  Completed
+                </div>
+              </div>
+              <div className="absolute -right-2 top-1/2 -translate-y-1/2 text-3xl animate-bounce-slow">
+                🐦
+              </div>
             </div>
 
             <div className="text-center mb-8">
-               <h4 className={`text-xl font-black mb-1 ${theme.text}`}>Keep Reading, {kidName}! 📖✨</h4>
-               <p className={`text-xs font-bold ${theme.textMuted}`}>Check-in today's reading to hit your goal!</p>
+              <h4 className={`text-xl font-black mb-1 ${theme.text}`}>
+                Keep Reading, {kidName}! 📖✨
+              </h4>
+              <p className={`text-xs font-bold ${theme.textMuted}`}>
+                Check-in today's reading to hit your goal!
+              </p>
             </div>
 
-            <button onClick={() => setShowCheckIn(true)} className={`w-full py-5 rounded-[2rem] text-lg font-black text-white shadow-xl transition-all active:scale-95 flex items-center justify-center space-x-3 mb-8 ${theme.primary}`}>
-               <div className="bg-white/20 p-2 rounded-xl"><BookOpen size={24} /></div>
-               <span>Check-In</span>
+            <button
+              onClick={() => setShowCheckIn(true)}
+              className={`w-full py-5 rounded-[2rem] text-lg font-black text-white shadow-xl transition-all active:scale-95 flex items-center justify-center space-x-3 mb-8 ${theme.primary}`}
+            >
+              <div className="bg-white/20 p-2 rounded-xl">
+                <BookOpen size={24} />
+              </div>
+              <span>Check-In</span>
             </button>
-            
+
             <div className="text-left mb-4 px-2">
-               <h3 className={`font-bold uppercase tracking-wider text-[10px] ${theme.textMuted}`}>Daily Goals</h3>
+              <h3
+                className={`font-bold uppercase tracking-wider text-[10px] ${theme.textMuted}`}
+              >
+                Daily Goals
+              </h3>
             </div>
             <div className="grid grid-cols-2 gap-4">
-               <div className={`p-4 rounded-[2rem] border ${theme.border} relative overflow-hidden bg-orange-50/50 text-left`}>
-                  <div className="text-orange-500 mb-2 flex justify-between items-center">
-                     <span className="text-xl">🦊</span>
-                     <span className="text-[8px] font-black uppercase text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">Goal</span>
-                  </div>
-                  <div className={`text-[10px] font-black mb-1 ${theme.text}`}>Daily Goal</div>
-                  <div className="flex justify-between items-end">
-                     <span className={`text-[8px] font-bold ${theme.textMuted}`}>{progress.readingGoal} Pages</span>
-                     <span className={`text-[8px] font-black ${theme.primaryText}`}>{stats.completed > 0 ? '100%' : '0%'}</span>
-                  </div>
-                  <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden">
-                     <div className={`h-full ${stats.completed > 0 ? 'bg-orange-400' : 'bg-gray-300'} rounded-full`} style={{ width: stats.completed > 0 ? '100%' : '0%' }}></div>
-                  </div>
-               </div>
-               <div className={`p-4 rounded-[2rem] border ${theme.border} relative overflow-hidden bg-emerald-50/50 text-left`}>
-                  <div className="text-emerald-500 mb-2 flex justify-between items-center">
-                     <span className="text-xl">🐰</span>
-                     {stats.completed > 0 ? <CheckCircle size={14} className="text-emerald-500" /> : <div className="w-3.5 h-3.5 rounded-full border-2 border-gray-300" />}
-                  </div>
-                  <div className={`text-[10px] font-black mb-1 ${theme.text}`}>Streak</div>
-                  <div className="flex justify-between items-end">
-                     <span className={`text-[8px] font-bold ${theme.textMuted}`}>{stats.completed} Days</span>
-                     <span className={`text-[8px] font-black text-emerald-600`}>Keep it up!</span>
-                  </div>
-                  <div className="w-full h-1 bg-gray-200 rounded-full mt-2 overflow-hidden">
-                     <div className="h-full bg-emerald-400 rounded-full" style={{ width: stats.completed > 0 ? '100%' : '0%' }}></div>
-                  </div>
-               </div>
+              <div
+                className={`p-4 rounded-[2rem] border ${theme.border} relative overflow-hidden bg-orange-50/80 text-left`}
+              >
+                <div className="text-orange-500 mb-2 flex justify-between items-center">
+                  <span className="text-xl">🦊</span>
+                  <span className="text-[8px] font-black uppercase text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">
+                    Goal
+                  </span>
+                </div>
+                <div className="text-[10px] font-black mb-1 text-orange-900">
+                  Daily Goal
+                </div>
+                <div className="flex justify-between items-end">
+                  <span className="text-[8px] font-bold text-orange-700/70">
+                    {progress.readingGoal} Pages
+                  </span>
+                  <span
+                    className={`text-[8px] font-black ${theme.primaryText}`}
+                  >
+                    {stats.completed > 0 ? "100%" : "0%"}
+                  </span>
+                </div>
+                <div className="w-full h-1 bg-orange-100 rounded-full mt-2 overflow-hidden">
+                  <div
+                    className={`h-full ${stats.completed > 0 ? "bg-orange-400" : "bg-orange-200"} rounded-full`}
+                    style={{ width: stats.completed > 0 ? "100%" : "0%" }}
+                  ></div>
+                </div>
+              </div>
+              <div
+                className={`p-4 rounded-[2rem] border ${theme.border} relative overflow-hidden bg-emerald-50/80 text-left`}
+              >
+                <div className="text-emerald-500 mb-2 flex justify-between items-center">
+                  <span className="text-xl">🐰</span>
+                  {stats.completed > 0 ? (
+                    <CheckCircle size={14} className="text-emerald-500" />
+                  ) : (
+                    <div className="w-3.5 h-3.5 rounded-full border-2 border-emerald-200" />
+                  )}
+                </div>
+                <div className="text-[10px] font-black mb-1 text-emerald-900">
+                  Streak
+                </div>
+                <div className="flex justify-between items-end">
+                  <span className="text-[8px] font-bold text-emerald-700/70">
+                    {stats.completed} Days
+                  </span>
+                  <span className="text-[8px] font-black text-emerald-600">
+                    Keep it up!
+                  </span>
+                </div>
+                <div className="w-full h-1 bg-emerald-100 rounded-full mt-2 overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-400 rounded-full"
+                    style={{ width: stats.completed > 0 ? "100%" : "0%" }}
+                  ></div>
+                </div>
+              </div>
             </div>
           </div>
 
           <div className="flex justify-center items-center mb-6 space-x-2">
             <div className={`flex p-1 rounded-full w-max ${theme.secondary}`}>
-              <button onClick={() => setActiveTab('progress')} className={`px-6 py-2 rounded-full font-bold text-sm transition ${activeTab === 'progress' ? `${theme.card} shadow-sm ${theme.text}` : theme.textMuted}`}>Chapters</button>
-              <button onClick={() => setActiveTab('notes')} className={`px-6 py-2 rounded-full font-bold text-sm transition ${activeTab === 'notes' ? `${theme.card} shadow-sm ${theme.text}` : theme.textMuted}`}>All Notes</button>
+              <button
+                onClick={() => setActiveTab("progress")}
+                className={`px-6 py-2 rounded-full font-bold text-sm transition ${activeTab === "progress" ? `${theme.card} shadow-sm ${theme.text}` : theme.textMuted}`}
+              >
+                Chapters
+              </button>
+              <button
+                onClick={() => setActiveTab("notes")}
+                className={`px-6 py-2 rounded-full font-bold text-sm transition ${activeTab === "notes" ? `${theme.card} shadow-sm ${theme.text}` : theme.textMuted}`}
+              >
+                All Notes
+              </button>
             </div>
-            {activeTab === 'notes' && (
-              <button onClick={() => setShowReport(true)} className={`p-2 rounded-full ${theme.primary} text-white shadow-md transition hover:scale-105`} title="Create Reading Report">
-                 <Printer size={20} />
+            {activeTab === "notes" && (
+              <button
+                onClick={() => setShowReport(true)}
+                className={`p-2 rounded-full ${theme.primary} text-white shadow-md transition hover:scale-105`}
+                title="Create Reading Report"
+              >
+                <Printer size={20} />
               </button>
             )}
           </div>
 
-          {activeTab === 'progress' ? (
+          {activeTab === "progress" ? (
             <div className="space-y-3">
               <div className="flex justify-between items-center mb-2 px-2">
-                 <h3 className={`font-bold text-[10px] uppercase ${theme.textMuted}`}>Reading Checklist</h3>
-                 {progress?.toc?.length > 0 && (
-                   <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${theme.secondary}`}>
-                     {progress.toc.filter(c => c.completed).length} / {progress.toc.length}
-                   </span>
-                 )}
-              </div>
-              {(localBook.progress?.toc || localBook.toc || []).map((chapter, idx) => (
-                <div key={chapter.id || idx} className={`${theme.card} p-4 rounded-2xl shadow-sm border ${theme.border} flex items-center space-x-4 transition ${chapter.completed ? 'opacity-70' : ''}`}>
-                  <button 
-                    onClick={() => toggleChapter(idx)} 
-                    className={`w-8 h-8 rounded-full flex items-center justify-center border-2 shrink-0 transition ${chapter.completed ? `${theme.primary} border-transparent text-white` : `border-gray-300 text-transparent hover:border-gray-400`}`}
+                <h3
+                  className={`font-bold text-[10px] uppercase ${theme.textMuted}`}
+                >
+                  Reading Checklist
+                </h3>
+                {progress?.toc?.length > 0 && (
+                  <span
+                    className={`text-[10px] font-black px-2 py-1 rounded-lg ${theme.secondary}`}
                   >
-                    <CheckCircle size={20} className={chapter.completed ? 'block' : 'hidden'} />
-                    {!chapter.completed && <div className="w-2 h-2 rounded-full bg-gray-200" />}
-                  </button>
-                  <div className="flex-1 min-w-0" onClick={() => toggleChapter(idx)}>
-                    <h4 className={`font-bold truncate ${chapter.completed ? `line-through ${theme.textMuted}` : theme.text}`}>{chapter.title}</h4>
-                    {chapter.page && <p className="text-[10px] text-gray-400">Page {chapter.page}</p>}
+                    {progress.toc.filter((c) => c.completed).length} /{" "}
+                    {progress.toc.length}
+                  </span>
+                )}
+              </div>
+              {(localBook.progress?.toc || localBook.toc || []).map(
+                (chapter, idx) => (
+                  <div
+                    key={chapter.id || idx}
+                    className={`${theme.card} p-4 rounded-2xl shadow-sm border ${theme.border} flex items-center space-x-4 transition ${chapter.completed ? "opacity-70" : ""}`}
+                  >
+                    <button
+                      onClick={() => toggleChapter(idx)}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center border-2 shrink-0 transition ${chapter.completed ? `${theme.primary} border-transparent text-white` : `border-gray-300 text-transparent hover:border-gray-400`}`}
+                    >
+                      <CheckCircle
+                        size={20}
+                        className={chapter.completed ? "block" : "hidden"}
+                      />
+                      {!chapter.completed && (
+                        <div className="w-2 h-2 rounded-full bg-gray-200" />
+                      )}
+                    </button>
+                    <div
+                      className="flex-1 min-w-0"
+                      onClick={() => toggleChapter(idx)}
+                    >
+                      <h4
+                        className={`font-bold truncate ${chapter.completed ? `line-through ${theme.textMuted}` : theme.text}`}
+                      >
+                        {chapter.title}
+                      </h4>
+                      {chapter.page && (
+                        <p className="text-[10px] text-gray-400">
+                          Page {chapter.page}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        setActiveChapterForNote(chapter);
+                        setShowNoteModal(true);
+                      }}
+                      className={`p-2 rounded-full transition ${chapter.notes?.length > 0 ? theme.secondary : `hover:${theme.secondary} ${theme.textMuted}`}`}
+                    >
+                      <Edit3 size={18} />
+                    </button>
                   </div>
-                  <button onClick={() => { setActiveChapterForNote(chapter); setShowNoteModal(true); }} className={`p-2 rounded-full transition ${chapter.notes?.length > 0 ? theme.secondary : `hover:${theme.secondary} ${theme.textMuted}`}`}><Edit3 size={18} /></button>
-                </div>
-              ))}
+                ),
+              )}
             </div>
           ) : (
             <div className="space-y-4">
-              {(localBook.progress?.toc || localBook.toc || []).flatMap(ch => ch.notes?.map(n => ({...n, chTitle: ch.title})) || []).map((note, i) => (
-                <div key={i} className={`${theme.card} p-4 rounded-2xl shadow-sm border ${theme.border}`}>
-                  <div className={`text-xs font-bold mb-2 ${theme.textMuted}`}>{note.chTitle}</div>
-                  <p className={`whitespace-pre-wrap text-sm font-medium ${theme.text}`}>{note.text}</p>
-                </div>
-              ))}
+              {(localBook.progress?.toc || localBook.toc || [])
+                .flatMap(
+                  (ch) =>
+                    ch.notes?.map((n) => ({ ...n, chTitle: ch.title })) || [],
+                )
+                .map((note, i) => (
+                  <div
+                    key={i}
+                    className={`${theme.card} p-4 rounded-2xl shadow-sm border ${theme.border}`}
+                  >
+                    <div
+                      className={`text-xs font-bold mb-2 ${theme.textMuted}`}
+                    >
+                      {note.chTitle}
+                    </div>
+                    <p
+                      className={`whitespace-pre-wrap text-sm font-medium ${theme.text}`}
+                    >
+                      {note.text}
+                    </p>
+                  </div>
+                ))}
             </div>
           )}
         </>
       )}
 
       {showNoteModal && (
-        <NoteModal chapter={activeChapterForNote} theme={theme} onClose={() => setShowNoteModal(false)} onSave={(noteText) => {
-          const newNote = { text: noteText, date: Date.now() };
-          if (localBook.progress) {
-            const updatedToc = (localBook.progress.toc || []).map(ch => 
-              (ch.id === activeChapterForNote.id || ch.title === activeChapterForNote.title) 
-                ? { ...ch, notes: [newNote] } 
-                : ch
-            );
-            saveProgress({ ...localBook.progress, toc: updatedToc });
-          } else {
-            const updatedToc = (localBook.toc || []).map(ch => 
-              ch.id === activeChapterForNote.id 
-                ? { ...ch, notes: [newNote] } 
-                : ch
-            );
-            saveUpdates({ ...localBook, toc: updatedToc });
-          }
-          setShowNoteModal(false);
-        }}/>
+        <NoteModal
+          chapter={activeChapterForNote}
+          theme={theme}
+          onClose={() => setShowNoteModal(false)}
+          onSave={(noteText) => {
+            const newNote = { text: noteText, date: Date.now() };
+            if (localBook.progress) {
+              const updatedToc = (localBook.progress.toc || []).map((ch) =>
+                ch.id === activeChapterForNote.id ||
+                ch.title === activeChapterForNote.title
+                  ? { ...ch, notes: [newNote] }
+                  : ch,
+              );
+              saveProgress({ ...localBook.progress, toc: updatedToc });
+            } else {
+              const updatedToc = (localBook.toc || []).map((ch) =>
+                ch.id === activeChapterForNote.id
+                  ? { ...ch, notes: [newNote] }
+                  : ch,
+              );
+              saveUpdates({ ...localBook, toc: updatedToc });
+            }
+            setShowNoteModal(false);
+          }}
+        />
       )}
 
       {localBook.summary && (
-        <div className={`${theme.card} p-5 rounded-[2rem] shadow-sm border ${theme.border}`}>
-          <h3 className={`font-bold text-[10px] uppercase mb-2 ${theme.textMuted}`}>About this book</h3>
-          <p className={`text-xs leading-relaxed italic ${theme.text}`}>{localBook.summary}</p>
+        <div
+          className={`${theme.card} p-5 rounded-[2rem] shadow-sm border ${theme.border}`}
+        >
+          <h3
+            className={`font-bold text-[10px] uppercase mb-2 ${theme.textMuted}`}
+          >
+            About this book
+          </h3>
+          <p className={`text-xs leading-relaxed italic ${theme.text}`}>
+            {localBook.summary}
+          </p>
           {localBook.tags?.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-3">
               {localBook.tags.map((tag, i) => (
-                <span key={i} className={`px-2 py-1 rounded-lg text-[9px] font-bold ${theme.secondary}`}>{tag}</span>
+                <span
+                  key={i}
+                  className={`px-2 py-1 rounded-lg text-[9px] font-bold ${theme.secondary}`}
+                >
+                  {tag}
+                </span>
               ))}
             </div>
           )}
@@ -1624,31 +1861,34 @@ function BookDetail({ book, userEmail, kidName, isParent, theme, onBack, onEdit,
       )}
 
       {showCheckIn && (
-        <CheckInModal 
-          progress={progress} 
-          theme={theme} 
-          onClose={() => setShowCheckIn(false)} 
+        <CheckInModal
+          progress={progress}
+          theme={theme}
+          onClose={() => setShowCheckIn(false)}
           onSave={async (pagesRead, currentPage) => {
-            const today = new Date().toISOString().split('T')[0];
-            const updatedLogs = { ...progress.logs, [today]: { pagesRead, currentPage, date: Date.now() } };
-            
+            const today = new Date().toISOString().split("T")[0];
+            const updatedLogs = {
+              ...progress.logs,
+              [today]: { pagesRead, currentPage, date: Date.now() },
+            };
+
             // Auto-complete ToC items based on page number
-            const updatedToc = (progress.toc || []).map(item => {
+            const updatedToc = (progress.toc || []).map((item) => {
               // Extract the first number found in the page string (e.g., "Page 10" -> 10)
               const pageMatch = String(item.page || "").match(/\d+/);
               const itemPage = pageMatch ? parseInt(pageMatch[0]) : NaN;
-              
+
               if (!isNaN(itemPage) && itemPage > 0 && itemPage <= currentPage) {
                 return { ...item, completed: true };
               }
               return item;
             });
 
-            await saveProgress({ 
-              ...progress, 
-              logs: updatedLogs, 
+            await saveProgress({
+              ...progress,
+              logs: updatedLogs,
               toc: updatedToc,
-              lastPageRead: currentPage 
+              lastPageRead: currentPage,
             });
             setShowCheckIn(false);
           }}
@@ -1659,7 +1899,7 @@ function BookDetail({ book, userEmail, kidName, isParent, theme, onBack, onEdit,
           onClick={async () => {
             if (
               !confirm(
-                "Are you sure you want to stop reading this book and remove it from your list? Your progress will be deleted."
+                "Are you sure you want to stop reading this book and remove it from your list? Your progress will be deleted.",
               )
             )
               return;
@@ -1678,11 +1918,11 @@ function BookDetail({ book, userEmail, kidName, isParent, theme, onBack, onEdit,
       )}
 
       {showReport && (
-        <ReadingReportModal 
-          progress={progress} 
-          book={localBook} 
-          theme={theme} 
-          onClose={() => setShowReport(false)} 
+        <ReadingReportModal
+          progress={progress}
+          book={localBook}
+          theme={theme}
+          onClose={() => setShowReport(false)}
         />
       )}
     </div>
@@ -1850,49 +2090,94 @@ Format the report with a friendly title, a short summary of what the book is abo
   return (
     <div className="fixed inset-0 bg-white z-[100] overflow-y-auto flex flex-col">
       <div className="print:hidden p-4 flex justify-between items-center bg-gray-50 border-b shrink-0">
-        <button onClick={onClose} className="p-2 bg-white rounded-full shadow-sm text-gray-500 hover:bg-gray-100 transition"><ChevronLeft size={24} /></button>
+        <button
+          onClick={onClose}
+          className="p-2 bg-white rounded-full shadow-sm text-gray-500 hover:bg-gray-100 transition"
+        >
+          <ChevronLeft size={24} />
+        </button>
         <div className="flex space-x-2 bg-white p-1 rounded-xl shadow-sm border border-gray-100">
-           <button onClick={() => setReportType('summary')} className={`px-4 py-2 rounded-lg text-sm font-bold transition ${reportType === 'summary' ? theme.primary + ' text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>AI Summary</button>
-           <button onClick={() => setReportType('full')} className={`px-4 py-2 rounded-lg text-sm font-bold transition ${reportType === 'full' ? theme.primary + ' text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>Full Notes</button>
+          <button
+            onClick={() => setReportType("summary")}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition ${reportType === "summary" ? theme.primary + " text-white shadow-sm" : "text-gray-500 hover:bg-gray-50"}`}
+          >
+            AI Summary
+          </button>
+          <button
+            onClick={() => setReportType("full")}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition ${reportType === "full" ? theme.primary + " text-white shadow-sm" : "text-gray-500 hover:bg-gray-50"}`}
+          >
+            Full Notes
+          </button>
         </div>
-        <button onClick={handlePrint} className={`px-4 py-2 rounded-xl text-white font-bold shadow-md transition hover:opacity-90 flex items-center space-x-2 ${theme.primary}`}>
-           <Printer size={18} />
-           <span className="hidden sm:inline">Print</span>
+        <button
+          onClick={handlePrint}
+          className={`px-4 py-2 rounded-xl text-white font-bold shadow-md transition hover:opacity-90 flex items-center space-x-2 ${theme.primary}`}
+        >
+          <Printer size={18} />
+          <span className="hidden sm:inline">Print</span>
         </button>
       </div>
-      
-      <div className="flex-1 p-8 print:p-0 max-w-3xl mx-auto w-full bg-white print:bg-transparent" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-        {reportType === 'summary' ? (
+
+      <div
+        className="flex-1 p-8 print:p-0 max-w-3xl mx-auto w-full bg-white print:bg-transparent"
+        style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}
+      >
+        {reportType === "summary" ? (
           isLoading ? (
             <div className="flex flex-col items-center justify-center h-64 space-y-4">
-               <Sparkles className={`animate-spin ${theme.primaryText}`} size={40} />
-               <p className="font-bold text-gray-500">Gemini is writing your cute report...</p>
+              <Sparkles
+                className={`animate-spin ${theme.primaryText}`}
+                size={40}
+              />
+              <p className="font-bold text-gray-500">
+                Gemini is writing your cute report...
+              </p>
             </div>
           ) : (
-            <div 
-              className={`max-w-none ${theme.text} [&_h1]:text-3xl [&_h1]:font-black [&_h1]:mb-4 [&_h1]:${theme.primaryText} [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h2]:mt-6 [&_h2]:${theme.primaryText} [&_p]:mb-4 [&_p]:leading-relaxed [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-4 [&_li]:mb-2 [&_strong]:font-black [&_strong]:${theme.primaryText}`} 
-              dangerouslySetInnerHTML={{ __html: content }} 
+            <div
+              className={`max-w-none text-gray-800 [&_h1]:text-3xl [&_h1]:font-black [&_h1]:mb-4 [&_h1]:text-gray-900 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h2]:mt-6 [&_h2]:text-gray-900 [&_p]:mb-4 [&_p]:leading-relaxed [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-4 [&_li]:mb-2 [&_strong]:font-black [&_strong]:text-gray-900`}
+              dangerouslySetInnerHTML={{ __html: content }}
             />
           )
         ) : (
           <div className="space-y-6">
-            <div className={`text-center pb-6 border-b-4 ${theme.border}`}>
-              <h1 className={`text-3xl sm:text-4xl font-black mb-2 ${theme.primaryText}`}>My Notes: {book.title}</h1>
-              <p className={`text-lg font-bold ${theme.textMuted}`}>by {book.author}</p>
+            <div className="text-center pb-6 border-b-4 border-gray-100">
+              <h1 className="text-3xl sm:text-4xl font-black mb-2 text-gray-900">
+                My Notes: {book.title}
+              </h1>
+              <p className="text-lg font-bold text-gray-500">
+                by {book.author}
+              </p>
             </div>
             {allNotes.length === 0 ? (
-               <p className="text-center text-gray-400 italic mt-10">No notes yet!</p>
+              <p className="text-center text-gray-400 italic mt-10">
+                No notes yet!
+              </p>
             ) : (
               <div className="space-y-4">
-                {allNotes.sort((a, b) => parseInt(a.page || 0) - parseInt(b.page || 0)).map((note, i) => (
-                  <div key={i} className={`p-5 rounded-2xl ${theme.bg} border ${theme.border} print:border-gray-300 print:bg-gray-50 break-inside-avoid shadow-sm`}>
-                    <div className="flex justify-between items-center mb-3">
-                       <span className={`font-bold text-sm ${theme.primaryText}`}>{note.chTitle}</span>
-                       {note.page && <span className={`text-xs font-bold px-2 py-1 rounded-lg bg-white shadow-sm border border-gray-100 ${theme.textMuted}`}>Page {note.page}</span>}
+                {allNotes
+                  .sort((a, b) => parseInt(a.page || 0) - parseInt(b.page || 0))
+                  .map((note, i) => (
+                    <div
+                      key={i}
+                      className="p-5 rounded-2xl bg-gray-50 border border-gray-200 break-inside-avoid shadow-sm"
+                    >
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="font-bold text-sm text-gray-900">
+                          {note.chTitle}
+                        </span>
+                        {note.page && (
+                          <span className="text-xs font-bold px-2 py-1 rounded-lg bg-white shadow-sm border border-gray-100 text-gray-500">
+                            Page {note.page}
+                          </span>
+                        )}
+                      </div>
+                      <p className="whitespace-pre-wrap font-medium leading-relaxed text-gray-700">
+                        {note.text}
+                      </p>
                     </div>
-                    <p className={`whitespace-pre-wrap font-medium leading-relaxed ${theme.text}`}>{note.text}</p>
-                  </div>
-                ))}
+                  ))}
               </div>
             )}
           </div>
