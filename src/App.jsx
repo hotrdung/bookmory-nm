@@ -747,7 +747,7 @@ function Header({
             {title}
           </span>
         )}
-        {tab ? (
+        {tab && (
           <div className="relative">
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -808,13 +808,6 @@ function Header({
               </>
             )}
           </div>
-        ) : (
-          <button
-            onClick={onLogout}
-            className={`p-2 rounded-xl transition ${theme.secondary} ${theme.textMuted}`}
-          >
-            <LogOut size={18} />
-          </button>
         )}
       </div>
     </header>
@@ -1123,16 +1116,14 @@ function BookList({ books, tab, setTab, theme, onAdd, onSelect }) {
               );
             })}
           </div>
-          {tab === "my" && (
-            <button
-              onClick={onAdd}
-              className={`fixed bottom-6 right-6 w-14 h-14 rounded-full text-white shadow-xl flex items-center justify-center transition-transform hover:scale-105 active:scale-95 ${theme.primary}`}
-            >
-              <Plus size={28} />
-            </button>
-          )}
         </>
       )}
+      <button
+        onClick={onAdd}
+        className={`fixed bottom-6 right-6 w-14 h-14 rounded-full text-white shadow-xl flex items-center justify-center transition-transform hover:scale-105 active:scale-95 z-30 ${theme.primary}`}
+      >
+        <Plus size={28} />
+      </button>
     </div>
   );
 }
